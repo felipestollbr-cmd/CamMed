@@ -1,7 +1,7 @@
 {
-  "name": "CamMed - Grade Fotográfica",
+  "name": "CamMed - Grade Profissional",
   "short_name": "CamMed",
-  "description": "Grade de enquadramento (regra dos terços) + régua transparente",
+  "description": "Grade de fotografia (terços, foco, escala -3/+3) e régua Tilibra",
   "start_url": ".",
   "display": "standalone",
   "theme_color": "#000000",
@@ -9,13 +9,13 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' fill='%23336699'/%3E%3Cline x1='64' y1='0' x2='64' y2='192' stroke='white' stroke-width='3'/%3E%3Cline x1='128' y1='0' x2='128' y2='192' stroke='white' stroke-width='3'/%3E%3Cline x1='0' y1='64' x2='192' y2='64' stroke='white' stroke-width='3'/%3E%3Cline x1='0' y1='128' x2='192' y2='128' stroke='white' stroke-width='3'/%3E%3C/svg%3E",
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' fill='%23336699'/%3E%3Cline x1='64' y1='0' x2='64' y2='192' stroke='white' stroke-width='2'/%3E%3Cline x1='128' y1='0' x2='128' y2='192' stroke='white' stroke-width='2'/%3E%3Cline x1='0' y1='64' x2='192' y2='64' stroke='white' stroke-width='2'/%3E%3Cline x1='0' y1='128' x2='192' y2='128' stroke='white' stroke-width='2'/%3E%3Ccircle cx='96' cy='96' r='24' stroke='white' fill='none' stroke-width='2'/%3E%3Ctext x='96' y='32' font-size='14' fill='white' text-anchor='middle'%3E-3%3C/text%3E%3Ctext x='128' y='32' font-size='14' fill='white'%3E+3%3C/text%3E%3C/svg%3E",
       "sizes": "192x192",
       "type": "image/svg+xml",
       "purpose": "any maskable"
     },
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%23336699'/%3E%3Cline x1='170' y1='0' x2='170' y2='512' stroke='white' stroke-width='6'/%3E%3Cline x1='341' y1='0' x2='341' y2='512' stroke='white' stroke-width='6'/%3E%3Cline x1='0' y1='170' x2='512' y2='170' stroke='white' stroke-width='6'/%3E%3Cline x1='0' y1='341' x2='512' y2='341' stroke='white' stroke-width='6'/%3E%3C/svg%3E",
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%23336699'/%3E%3Cline x1='170' y1='0' x2='170' y2='512' stroke='white' stroke-width='4'/%3E%3Cline x1='341' y1='0' x2='341' y2='512' stroke='white' stroke-width='4'/%3E%3Cline x1='0' y1='170' x2='512' y2='170' stroke='white' stroke-width='4'/%3E%3Cline x1='0' y1='341' x2='512' y2='341' stroke='white' stroke-width='4'/%3E%3Ccircle cx='256' cy='256' r='60' stroke='white' fill='none' stroke-width='4'/%3E%3C/svg%3E",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"

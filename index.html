@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>CamMed - Grade Fotográfica</title>
+  <title>CamMed - Grade Profissional</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -49,7 +49,6 @@
       cursor: crosshair;
     }
 
-    /* Botão de captura centralizado e mais alto */
     .control-bar {
       background: rgba(0, 0, 0, 0.6);
       backdrop-filter: blur(10px);
@@ -72,7 +71,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-top: -20px;  /* eleva o botão */
+      margin-top: -20px;
     }
     .capture-btn:active {
       transform: scale(0.94);
@@ -116,14 +115,13 @@
     </button>
   </div>
   <div class="info">
-    📷 Grade de enquadramento (regra dos terços) + régua fixa | Botão centralizado
+    📷 Grade profissional (terços + foco + escala de exposição -3 a +3) + régua Tilibra
   </div>
-  <footer>Régua estilo Tilibra | Toque para capturar com grade e régua</footer>
+  <footer>Toque no botão para capturar a tela com todas as sobreposições</footer>
 </div>
 
 <script>
   (function() {
-    // ----- ELEMENTOS -----
     const video = document.createElement('video');
     video.setAttribute('autoplay', '');
     video.setAttribute('playsinline', '');
@@ -132,20 +130,22 @@
 
     const canvas = document.getElementById('mainCanvas');
     const ctx = canvas.getContext('2d');
-
     let animationId = null;
 
-    // ----- CONFIGURAÇÕES DA RÉGUA FIXA (transparente, estilo Tilibra) -----
-    const PX_PER_CM = 30;        // 30px = 1cm virtual → 3px = 1mm
+    // --- Régua fixa (estilo Tilibra) ---
+    const PX_PER_CM = 30;        // 30px = 1cm virtual → 3px/mm
     const PX_PER_MM = PX_PER_CM / 10;
     const RULER_HEIGHT = 60;
 
-    // ----- CONFIGURAÇÕES DA GRADE DE ENQUADRAMENTO (Regra dos Terços) -----
-    const GRID_COLOR = "rgba(255, 255, 255, 0.65)";
-    const GRID_LINE_WIDTH = 1.5;
-    const CENTER_DOT_SIZE = 4;   // ponto central opcional
+    // --- Grade de enquadramento profissional ---
+    const GRID_OPACITY = 0.65;
+    const GRID_COLOR = `rgba(255, 255, 255, ${GRID_OPACITY})`;
+    const LINE_WIDTH = 1.2;
+    const FOCUS_CIRCLE_RADIUS = 60;   // círculo central de foco
+    const SCALE_Y_POS = 40;           // posição vertical da escala de exposição (topo)
+    const SCALE_VALUES = [-3, -2, -1, 0, 1, 2, 3];  // valores de exposição
 
-    // ----- INICIALIZAR CÂMERA (traseira preferencial) -----
+    // --- Inicializar câmera (traseira prioritária) ---
     async function initCamera() {
       try {
         let constraints = {
@@ -193,26 +193,29 @@
       if (video.videoWidth) resizeCanvasToVideo();
     });
 
-    // ----- LOOP DE DESENHO (vídeo + grade + régua) -----
+    // --- Desenho principal (vídeo + grade + régua) ---
     function drawFrame() {
       if (!video.videoWidth || !canvas.width) return;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      drawPhotographyGrid();   // grade de terços
-      drawRuler();             // régua transparente inferior
+      drawProfessionalGrid();   // grade de terços + círculo + escala
+      drawRuler();              // régua transparente estilo Tilibra
     }
 
-    // Grade de enquadramento fotográfico (regra dos terços)
-    function drawPhotographyGrid() {
+    // Grade profissional inspirada em visor de câmera moderna
+    function drawProfessionalGrid() {
       const w = canvas.width;
       const h = canvas.height;
       ctx.save();
-      ctx.beginPath();
       ctx.strokeStyle = GRID_COLOR;
-      ctx.lineWidth = GRID_LINE_WIDTH;
-      
-      // Linhas verticais a 1/3 e 2/3 da largura
+      ctx.lineWidth = LINE_WIDTH;
+      ctx.fillStyle = `rgba(255, 255, 255, 0.4)`;
+
+      // 1. Linhas da regra dos terços
       const x1 = w / 3;
       const x2 = 2 * w / 3;
+      const y1 = h / 3;
+      const y2 = 2 * h / 3;
+
       ctx.beginPath();
       ctx.moveTo(x1, 0);
       ctx.lineTo(x1, h);
@@ -221,10 +224,6 @@
       ctx.moveTo(x2, 0);
       ctx.lineTo(x2, h);
       ctx.stroke();
-      
-      // Linhas horizontais a 1/3 e 2/3 da altura
-      const y1 = h / 3;
-      const y2 = 2 * h / 3;
       ctx.beginPath();
       ctx.moveTo(0, y1);
       ctx.lineTo(w, y1);
@@ -233,22 +232,78 @@
       ctx.moveTo(0, y2);
       ctx.lineTo(w, y2);
       ctx.stroke();
-      
-      // (Opcional) ponto central para ajudar no alinhamento
+
+      // 2. Círculo central de foco (como visor)
+      const centerX = w / 2;
+      const centerY = h / 2;
       ctx.beginPath();
-      ctx.arc(w/2, h/2, CENTER_DOT_SIZE, 0, 2 * Math.PI);
-      ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
-      ctx.fill();
+      ctx.arc(centerX, centerY, FOCUS_CIRCLE_RADIUS, 0, 2 * Math.PI);
+      ctx.stroke();
+      // Pequena mira no centro
+      ctx.beginPath();
+      ctx.moveTo(centerX - 8, centerY);
+      ctx.lineTo(centerX + 8, centerY);
+      ctx.moveTo(centerX, centerY - 8);
+      ctx.lineTo(centerX, centerY + 8);
+      ctx.stroke();
+      // Círculo interno
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, FOCUS_CIRCLE_RADIUS * 0.4, 0, 2 * Math.PI);
+      ctx.stroke();
+
+      // 3. Escala de exposição (-3 a +3) no topo central
+      const scaleWidth = 180;      // largura total da escala
+      const startX = (w / 2) - (scaleWidth / 2);
+      const scaleY = SCALE_Y_POS;
+      const tickSpacing = scaleWidth / (SCALE_VALUES.length - 1);
       
+      // Linha horizontal da escala
+      ctx.beginPath();
+      ctx.moveTo(startX, scaleY);
+      ctx.lineTo(startX + scaleWidth, scaleY);
+      ctx.stroke();
+      
+      // Marcas e números
+      ctx.font = "12px 'Courier New', monospace";
+      ctx.fillStyle = GRID_COLOR;
+      ctx.textAlign = "center";
+      for (let i = 0; i < SCALE_VALUES.length; i++) {
+        const xTick = startX + i * tickSpacing;
+        ctx.beginPath();
+        ctx.moveTo(xTick, scaleY - 5);
+        ctx.lineTo(xTick, scaleY + 5);
+        ctx.stroke();
+        let label = SCALE_VALUES[i];
+        if (label > 0) label = "+" + label;
+        ctx.fillText(label.toString(), xTick, scaleY - 8);
+      }
+      // Indicador central (triângulo ou linha destacada)
+      ctx.beginPath();
+      ctx.moveTo(w/2, scaleY - 10);
+      ctx.lineTo(w/2 - 4, scaleY - 2);
+      ctx.lineTo(w/2 + 4, scaleY - 2);
+      ctx.fillStyle = `rgba(255, 200, 100, 0.9)`;
+      ctx.fill();
+
+      // 4. Pequenos retângulos de foco nos pontos de terço (opcional)
+      const corners = [[x1, y1], [x1, y2], [x2, y1], [x2, y2]];
+      corners.forEach(([cx, cy]) => {
+        ctx.beginPath();
+        ctx.rect(cx - 12, cy - 8, 24, 16);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.rect(cx - 8, cy - 12, 16, 24);
+        ctx.stroke();
+      });
+
       ctx.restore();
     }
 
-    // Régua transparente estilo Tilibra (marcações mm, 5mm, cm)
+    // Régua transparente estilo Tilibra (igual à anterior, mas mantendo estilo)
     function drawRuler() {
       const w = canvas.width;
       const rulerY = canvas.height - RULER_HEIGHT;
       
-      // Fundo semi-transparente claro (régua "translúcida")
       ctx.fillStyle = "rgba(255, 248, 225, 0.85)";
       ctx.fillRect(0, rulerY, w, RULER_HEIGHT);
       ctx.strokeStyle = "#aaa";
@@ -269,7 +324,7 @@
         if (x > w) break;
         const isCm = (mm % 10 === 0);
         const is5mm = (mm % 5 === 0 && !isCm);
-        let tickHeight = 8;   // 1mm
+        let tickHeight = 8;
         if (is5mm) tickHeight = 14;
         if (isCm) tickHeight = 22;
 
@@ -294,7 +349,6 @@
         }
       }
 
-      // Texto "tilibra" e pequenos ícones
       ctx.font = "italic 9px 'Segoe UI'";
       ctx.fillStyle = "#3c3c3c";
       const tilibra = "tilibra";
@@ -306,7 +360,6 @@
       ctx.fillStyle = "#222";
       ctx.fillText("cm", 6, rulerY + 14);
       
-      // extremidades
       ctx.beginPath();
       ctx.moveTo(0, rulerY + RULER_HEIGHT-2);
       ctx.lineTo(3, rulerY + RULER_HEIGHT-10);
@@ -324,20 +377,16 @@
       frame();
     }
 
-    // ----- CAPTURA DA IMAGEM (com grade e régua) -----
     function captureImage() {
-      drawFrame(); // garante desenho atualizado
+      drawFrame();
       const link = document.createElement('a');
       const timestamp = new Date().toISOString().slice(0,19).replace(/:/g, '-');
-      link.download = `camed_photo_${timestamp}.png`;
+      link.download = `camed_grid_${timestamp}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
     }
 
-    // ----- EVENTOS -----
     document.getElementById('captureBtn').addEventListener('click', captureImage);
-
-    // Inicializar
     initCamera();
   })();
 </script>
