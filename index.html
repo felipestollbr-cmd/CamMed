@@ -53,56 +53,20 @@
       cursor: crosshair;
     }
 
-    /* Seletor de modo (Foto / Vídeo) estilo iPhone */
-    .mode-selector {
-      position: absolute;
-      top: 50px;
-      left: 0;
-      right: 0;
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-      background: rgba(0,0,0,0.5);
-      backdrop-filter: blur(20px);
-      padding: 8px 16px;
-      border-radius: 40px;
-      width: fit-content;
-      margin: 0 auto;
-      z-index: 20;
-    }
-    .mode-btn {
-      background: transparent;
-      border: none;
-      color: rgba(255,255,255,0.6);
-      font-size: 16px;
-      font-weight: 600;
-      padding: 6px 20px;
-      border-radius: 30px;
-      transition: 0.2s;
-      cursor: pointer;
-    }
-    .mode-btn.active {
-      background: rgba(255,255,255,0.3);
-      color: white;
-    }
-    .mode-btn:active {
-      transform: scale(0.96);
-    }
-
-    /* Barra inferior estilo iPhone */
+    /* Barra inferior com dois botões */
     .control-bar {
       background: rgba(0, 0, 0, 0.5);
       backdrop-filter: blur(20px);
       display: flex;
-      justify-content: center;
+      justify-content: space-between;
       align-items: center;
-      padding: 16px 0 30px;
+      padding: 16px 30px 30px;
       border-top: 0.5px solid rgba(255,255,255,0.2);
-      position: relative;
+      gap: 20px;
     }
 
-    /* Botão de captura (único) */
-    .capture-btn {
+    /* Botão de foto (central) e botão de vídeo (ao lado) */
+    .photo-btn {
       width: 76px;
       height: 76px;
       border-radius: 50%;
@@ -115,30 +79,45 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-top: -20px;
+      flex-shrink: 0;
     }
-    .capture-btn:active {
+    .photo-btn:active {
       transform: scale(0.94);
     }
-    .capture-btn .inner-dot {
+    .photo-btn .inner-dot {
       width: 64px;
       height: 64px;
       border-radius: 50%;
       background: #ff3366;
-      transition: 0.1s;
     }
-    /* Modo vídeo - botão fica vermelho */
-    .capture-btn.video-mode .inner-dot {
-      background: #ff3b30;
+
+    .video-btn {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      border-radius: 40px;
+      padding: 12px 24px;
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      backdrop-filter: blur(10px);
+      cursor: pointer;
+      transition: 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    .capture-btn.recording .inner-dot {
+    .video-btn:active {
+      transform: scale(0.96);
+      background: rgba(255,255,255,0.4);
+    }
+    .video-btn.recording {
       background: #ff3b30;
       animation: pulse 1s infinite;
     }
     @keyframes pulse {
-      0% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.1); opacity: 0.8; }
-      100% { transform: scale(1); opacity: 1; }
+      0% { opacity: 1; }
+      50% { opacity: 0.7; }
+      100% { opacity: 1; }
     }
 
     .install-btn {
@@ -156,6 +135,7 @@
       z-index: 20;
       display: none;
     }
+
     .info {
       position: absolute;
       bottom: 100px;
@@ -172,6 +152,7 @@
       backdrop-filter: blur(10px);
       pointer-events: none;
     }
+
     .toast {
       position: fixed;
       bottom: 120px;
@@ -195,16 +176,14 @@
   <div class="canvas-wrapper">
     <canvas id="mainCanvas"></canvas>
   </div>
-  <div class="mode-selector">
-    <button id="photoModeBtn" class="mode-btn active">📷 Foto</button>
-    <button id="videoModeBtn" class="mode-btn">🎥 Vídeo</button>
-  </div>
   <div class="control-bar">
-    <button class="capture-btn" id="captureBtn">
+    <button class="video-btn" id="videoBtn">🎥 Iniciar Vídeo</button>
+    <button class="photo-btn" id="photoBtn">
       <div class="inner-dot"></div>
     </button>
+    <div style="width: 76px;"></div> <!-- Espaçador para manter o botão de foto centralizado -->
   </div>
-  <div class="info" id="infoMsg">📷 Modo Foto • Toque para capturar</div>
+  <div class="info" id="infoMsg">📷 Toque no botão central para foto | Botão ao lado para vídeo</div>
   <button id="installBtn" class="install-btn">📲 Instalar</button>
 </div>
 <div id="toast" class="toast">✅ Pronto!</div>
@@ -232,8 +211,7 @@
     const SCALE_Y_POS = 40;
     const SCALE_VALUES = [-3, -2, -1, 0, 1, 2, 3];
 
-    // --- Estado do app ---
-    let currentMode = 'photo'; // 'photo' ou 'video'
+    // --- Estado da gravação ---
     let isRecording = false;
     let mediaRecorder = null;
     let recordedChunks = [];
@@ -403,7 +381,7 @@
       frame();
     }
 
-    // --- Função de captura de foto (compartilhar/salvar) ---
+    // --- Foto ---
     async function capturePhoto() {
       drawFrame();
       canvas.toBlob(async (blob) => {
@@ -428,13 +406,13 @@
       showToast("📁 Imagem baixada");
     }
 
-    // --- Gravação de vídeo (canvas stream) ---
+    // --- Vídeo ---
     async function startRecording() {
       if (isRecording) return;
       try {
-        // Captura o canvas em 30 fps
+        // Cria stream a partir do canvas (30 fps)
         canvasStream = canvas.captureStream(30);
-        // Se quiser áudio do microfone, descomente:
+        // Opcional: adicionar áudio do microfone (descomente se quiser)
         // let audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         // audioStream.getTracks().forEach(track => canvasStream.addTrack(track));
         mediaRecorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm' });
@@ -454,18 +432,19 @@
           if (canvasStream) canvasStream.getTracks().forEach(t => t.stop());
           canvasStream = null;
           isRecording = false;
-          const captureBtn = document.getElementById('captureBtn');
-          captureBtn.classList.remove('recording');
-          updateButtonUI();
+          const videoBtn = document.getElementById('videoBtn');
+          videoBtn.classList.remove('recording');
+          videoBtn.innerHTML = "🎥 Iniciar Vídeo";
         };
-        mediaRecorder.start(1000); // salva chunks a cada segundo
+        mediaRecorder.start(1000); // grava em pedaços de 1 segundo
         isRecording = true;
-        const captureBtn = document.getElementById('captureBtn');
-        captureBtn.classList.add('recording');
+        const videoBtn = document.getElementById('videoBtn');
+        videoBtn.classList.add('recording');
+        videoBtn.innerHTML = "⏹️ Parar Gravação";
         showToast("🔴 Gravando vídeo com grade e régua...");
       } catch (err) {
         console.error("Erro ao iniciar gravação:", err);
-        showToast("Erro ao iniciar gravação");
+        showToast("Erro ao iniciar gravação: " + err.message);
       }
     }
 
@@ -475,55 +454,15 @@
       }
     }
 
-    // --- Ação principal do botão central (foto ou vídeo) ---
-    function onMainCapture() {
-      if (currentMode === 'photo') {
-        capturePhoto();
-      } else { // modo vídeo
-        if (isRecording) {
-          stopRecording();
-        } else {
-          startRecording();
-        }
-      }
-    }
-
-    // --- Alternar entre modos Foto e Vídeo ---
-    function setMode(mode) {
-      currentMode = mode;
-      const photoBtn = document.getElementById('photoModeBtn');
-      const videoBtn = document.getElementById('videoModeBtn');
-      const captureBtn = document.getElementById('captureBtn');
-      const infoMsg = document.getElementById('infoMsg');
-      if (mode === 'photo') {
-        photoBtn.classList.add('active');
-        videoBtn.classList.remove('active');
-        captureBtn.classList.remove('video-mode');
-        if (!isRecording) captureBtn.classList.remove('recording');
-        infoMsg.innerHTML = "📷 Modo Foto • Toque para capturar";
-      } else {
-        videoBtn.classList.add('active');
-        photoBtn.classList.remove('active');
-        captureBtn.classList.add('video-mode');
-        infoMsg.innerHTML = "🎥 Modo Vídeo • Toque para iniciar/parar gravação";
-      }
-      // Se estava gravando e mudou de modo, para a gravação
-      if (isRecording && mode === 'photo') {
+    function toggleVideo() {
+      if (isRecording) {
         stopRecording();
-      }
-      updateButtonUI();
-    }
-
-    function updateButtonUI() {
-      const captureBtn = document.getElementById('captureBtn');
-      if (currentMode === 'video' && isRecording) {
-        captureBtn.classList.add('recording');
       } else {
-        captureBtn.classList.remove('recording');
+        startRecording();
       }
     }
 
-    // --- Instalação do PWA ---
+    // --- Instalação PWA ---
     let deferredPrompt = null;
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
@@ -542,10 +481,9 @@
       };
     });
 
-    // --- Eventos de UI ---
-    document.getElementById('captureBtn').addEventListener('click', onMainCapture);
-    document.getElementById('photoModeBtn').addEventListener('click', () => setMode('photo'));
-    document.getElementById('videoModeBtn').addEventListener('click', () => setMode('video'));
+    // --- Eventos ---
+    document.getElementById('photoBtn').addEventListener('click', capturePhoto);
+    document.getElementById('videoBtn').addEventListener('click', toggleVideo);
 
     function showToast(msg) {
       const toast = document.getElementById('toast');
@@ -556,7 +494,6 @@
 
     // Inicializar
     initCamera();
-    setMode('photo');
   })();
 </script>
 </body>
