@@ -48,7 +48,6 @@
       object-fit: contain;
       cursor: crosshair;
     }
-    /* Seletor de modo no topo */
     .mode-selector {
       position: absolute;
       top: 50px;
@@ -80,7 +79,6 @@
       background: rgba(255,255,255,0.3);
       color: white;
     }
-    /* Barra inferior com botão central */
     .control-bar {
       background: rgba(0, 0, 0, 0.5);
       backdrop-filter: blur(20px);
@@ -90,7 +88,6 @@
       padding: 16px 0 30px;
       border-top: 0.5px solid rgba(255,255,255,0.2);
     }
-    /* Botão de captura universal */
     .capture-btn {
       width: 76px;
       height: 76px;
@@ -114,7 +111,6 @@
       background: #ff3366;
       transition: 0.1s;
     }
-    /* Modo vídeo: botão fica vermelho e pisca durante gravação */
     .capture-btn.video-mode .inner-dot {
       background: #ff3b30;
     }
@@ -196,7 +192,6 @@
 
 <script>
   (function() {
-    // --- Elementos ---
     const videoElem = document.createElement('video');
     videoElem.setAttribute('autoplay', '');
     videoElem.setAttribute('playsinline', '');
@@ -207,7 +202,7 @@
     const ctx = canvas.getContext('2d');
     let animationId = null;
 
-    // --- Configurações visuais (régua e grade) ---
+    // Configurações visuais
     const PX_PER_CM = 30;
     const PX_PER_MM = PX_PER_CM / 10;
     const RULER_HEIGHT = 60;
@@ -217,20 +212,24 @@
     const SCALE_Y_POS = 40;
     const SCALE_VALUES = [-3, -2, -1, 0, 1, 2, 3];
 
-    // --- Estado do app ---
-    let currentMode = 'photo';   // 'photo' ou 'video'
+    let currentMode = 'photo';
     let isRecording = false;
     let mediaRecorder = null;
     let recordedChunks = [];
     let canvasStream = null;
-
-    // --- Câmera ---
     let currentStream = null;
 
-    async function initCamera() {
-      if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
+    // --- Suporte a codecs: priorizar MP4 ---
+    function getSupportedMimeType() {
+      const types = ['video/mp4', 'video/webm', 'video/x-matroska'];
+      for (let type of types) {
+        if (MediaRecorder.isTypeSupported(type)) return type;
       }
+      return null;
+    }
+
+    async function initCamera() {
+      if (currentStream) currentStream.getTracks().forEach(track => track.stop());
       try {
         let constraints = {
           video: { facingMode: { exact: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }
@@ -243,7 +242,6 @@
         startDrawLoop();
         return true;
       } catch (err) {
-        console.warn("Câmera traseira falhou, tentando qualquer câmera", err);
         try {
           let stream = await navigator.mediaDevices.getUserMedia({ video: true });
           currentStream = stream;
@@ -253,7 +251,6 @@
           startDrawLoop();
           return true;
         } catch(e) {
-          console.error("Erro fatal na câmera", e);
           document.getElementById('infoMsg').innerHTML = "❌ Sem acesso à câmera.";
           return false;
         }
@@ -263,21 +260,19 @@
     function resizeCanvasAndDraw() {
       if (!videoElem.videoWidth || !videoElem.videoHeight) return;
       const container = canvas.parentElement;
-      const containerWidth = container.clientWidth;
-      const containerHeight = container.clientHeight;
-      const videoAspect = videoElem.videoWidth / videoElem.videoHeight;
-      let canvasWidth = containerWidth;
-      let canvasHeight = canvasWidth / videoAspect;
-      if (canvasHeight > containerHeight) {
-        canvasHeight = containerHeight;
-        canvasWidth = canvasHeight * videoAspect;
+      const cw = container.clientWidth, ch = container.clientHeight;
+      const aspect = videoElem.videoWidth / videoElem.videoHeight;
+      let canvasWidth = cw, canvasHeight = cw / aspect;
+      if (canvasHeight > ch) {
+        canvasHeight = ch;
+        canvasWidth = ch * aspect;
       }
       canvas.width = canvasWidth;
       canvas.height = canvasHeight;
       canvas.style.width = `${canvasWidth}px`;
       canvas.style.height = `${canvasHeight}px`;
-      canvas.style.left = `${(containerWidth - canvasWidth)/2}px`;
-      canvas.style.top = `${(containerHeight - canvasHeight)/2}px`;
+      canvas.style.left = `${(cw - canvasWidth)/2}px`;
+      canvas.style.top = `${(ch - canvasHeight)/2}px`;
       if (videoElem.readyState >= 2) drawFrame();
     }
 
@@ -380,7 +375,7 @@
       frame();
     }
 
-    // --- Captura de foto (compartilhar/baixar) ---
+    // --- Foto ---
     async function capturePhoto() {
       drawFrame();
       canvas.toBlob(async (blob) => {
@@ -389,40 +384,30 @@
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
             await navigator.share({ title: 'CamMed', files: [file] });
-            showToast("✅ Foto salva no rolo (escolha Salvar)");
+            showToast("✅ Foto salva no rolo");
           } catch(e) { if(e.name !== 'AbortError') downloadFallback(blob); }
         } else { downloadFallback(blob); }
       }, 'image/png');
     }
 
     function downloadFallback(blob) {
-      const link = document.createElement('a');
+      const a = document.createElement('a');
       const url = URL.createObjectURL(blob);
-      link.href = url;
-      link.download = `camed_${Date.now()}.png`;
-      link.click();
+      a.href = url;
+      a.download = `camed_${Date.now()}.png`;
+      a.click();
       URL.revokeObjectURL(url);
       showToast("📁 Imagem baixada");
     }
 
-    // --- Gravação de vídeo (MediaRecorder com canvas.captureStream) ---
-    function getSupportedMimeType() {
-      const types = ['video/webm', 'video/mp4', 'video/x-matroska'];
-      for (let type of types) {
-        if (MediaRecorder.isTypeSupported(type)) return type;
-      }
-      return null;
-    }
-
+    // --- Vídeo com prioridade MP4 ---
     async function startRecording() {
       if (isRecording) return;
       try {
-        // Para garantir que o canvas esteja atualizado
         drawFrame();
-        // Cria stream a partir do canvas
         canvasStream = canvas.captureStream(30);
         const mimeType = getSupportedMimeType();
-        if (!mimeType) throw new Error("Nenhum codec de vídeo suportado");
+        if (!mimeType) throw new Error("Nenhum codec suportado");
         mediaRecorder = new MediaRecorder(canvasStream, { mimeType: mimeType, videoBitsPerSecond: 2500000 });
         recordedChunks = [];
         mediaRecorder.ondataavailable = (event) => {
@@ -430,21 +415,26 @@
         };
         mediaRecorder.onstop = () => {
           const blob = new Blob(recordedChunks, { type: mimeType });
+          // Define a extensão do arquivo: .mp4 se o mimeType incluir 'mp4', senão .webm
+          let extension = 'webm';
+          if (mimeType.includes('mp4')) extension = 'mp4';
+          else if (mimeType.includes('webm')) extension = 'webm';
+          const filename = `camed_video_${Date.now()}.${extension}`;
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `camed_video_${Date.now()}.${mimeType.split('/')[1] || 'webm'}`;
+          a.download = filename;
           a.click();
           URL.revokeObjectURL(url);
-          showToast("🎥 Vídeo salvo");
+          showToast(`🎥 Vídeo salvo como ${extension.toUpperCase()}`);
           cleanupRecording();
         };
-        mediaRecorder.start(1000); // grava em pedaços de 1s
+        mediaRecorder.start(1000);
         isRecording = true;
         updateButtonUI();
-        showToast("🔴 Gravando vídeo...");
+        showToast("🔴 Gravando vídeo em " + (mimeType.includes('mp4') ? 'MP4' : 'WebM') + "...");
       } catch (err) {
-        console.error("Erro ao iniciar gravação:", err);
+        console.error(err);
         showToast("Erro: " + err.message);
         cleanupRecording();
       }
@@ -468,20 +458,14 @@
       updateButtonUI();
     }
 
-    // --- Ação do botão central conforme modo ---
     function onMainCapture() {
-      if (currentMode === 'photo') {
-        capturePhoto();
-      } else { // modo vídeo
-        if (isRecording) {
-          stopRecording();
-        } else {
-          startRecording();
-        }
+      if (currentMode === 'photo') capturePhoto();
+      else {
+        if (isRecording) stopRecording();
+        else startRecording();
       }
     }
 
-    // --- Alternar modo (Foto / Vídeo) ---
     function setMode(mode) {
       currentMode = mode;
       const photoBtn = document.getElementById('photoModeBtn');
@@ -497,25 +481,19 @@
         videoBtn.classList.add('active');
         photoBtn.classList.remove('active');
         captureBtn.classList.add('video-mode');
-        infoMsg.innerHTML = "🎥 Modo Vídeo • Toque para iniciar/parar gravação";
+        infoMsg.innerHTML = "🎥 Modo Vídeo • Toque para iniciar/parar gravação (MP4)";
       }
-      // Se estava gravando e mudou para foto, para a gravação
-      if (isRecording && mode === 'photo') {
-        stopRecording();
-      }
+      if (isRecording && mode === 'photo') stopRecording();
       updateButtonUI();
     }
 
     function updateButtonUI() {
       const captureBtn = document.getElementById('captureBtn');
-      if (currentMode === 'video' && isRecording) {
-        captureBtn.classList.add('recording');
-      } else {
-        captureBtn.classList.remove('recording');
-      }
+      if (currentMode === 'video' && isRecording) captureBtn.classList.add('recording');
+      else captureBtn.classList.remove('recording');
     }
 
-    // --- Instalação PWA ---
+    // Instalação PWA
     let deferredPrompt = null;
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
@@ -532,7 +510,6 @@
       };
     });
 
-    // --- Eventos ---
     document.getElementById('captureBtn').addEventListener('click', onMainCapture);
     document.getElementById('photoModeBtn').addEventListener('click', () => setMode('photo'));
     document.getElementById('videoModeBtn').addEventListener('click', () => setMode('video'));
