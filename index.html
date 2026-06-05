@@ -11,327 +11,158 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <title>CamRégua</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;background:#000;overflow:hidden;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+#app{position:fixed;inset:0;background:#000}
+#video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#gridCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#captureCanvas{display:none}
 
-:root {
-  --accent: #00ffb4;
-  --btn-bg: rgba(0,0,0,0.6);
-  --font-mono: 'Share Tech Mono', monospace;
-  --font-ui: 'Exo 2', sans-serif;
-  --ruler-h: 70px;
+/* TOPO */
+#topBar{
+  position:absolute;top:0;left:0;right:0;
+  height:56px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;padding-top:env(safe-area-inset-top,0px);
+  background:linear-gradient(to bottom,rgba(0,0,0,.72),transparent);
+  z-index:20;
 }
-
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
-html, body {
-  width: 100%; height: 100%;
-  background: #000;
-  overflow: hidden;
-  font-family: var(--font-ui);
-  touch-action: manipulation;
-  user-select: none;
-  -webkit-user-select: none;
+.app-title{font-family:'Share Tech Mono',monospace;font-size:14px;color:#00ffb4;letter-spacing:3px}
+.top-controls{display:flex;gap:10px}
+.icon-btn{
+  background:rgba(0,0,0,.6);border:1.5px solid rgba(0,255,180,.35);color:#00ffb4;
+  border-radius:50%;width:42px;height:42px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:18px;-webkit-tap-highlight-color:transparent;transition:background .15s
 }
+.icon-btn.active{border-color:#00ffb4;background:rgba(0,255,180,.18)}
+.icon-btn:active{background:rgba(0,255,180,.28)}
 
-#app {
-  position: fixed;
-  inset: 0;
-  background: #000;
-}
-
-#video {
-  position: absolute;
-  inset: 0;
-  width: 100%; height: 100%;
-  object-fit: cover;
-}
-
-/* grade desenhada via canvas absoluto sobre o vídeo */
-#gridCanvas {
-  position: absolute;
-  inset: 0;
-  width: 100%; height: 100%;
-  pointer-events: none;
-}
-
-#captureCanvas { display: none; }
-
-/* ── BARRA SUPERIOR ── */
-#topBar {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  padding-top: env(safe-area-inset-top, 0px);
-  background: linear-gradient(to bottom, rgba(0,0,0,0.72) 0%, transparent 100%);
-  z-index: 20;
-}
-
-.app-title {
-  font-family: var(--font-mono);
-  font-size: 14px;
-  color: var(--accent);
-  letter-spacing: 3px;
-}
-
-.top-controls { display: flex; gap: 10px; }
-
-.icon-btn {
-  background: var(--btn-bg);
-  border: 1.5px solid rgba(0,255,180,0.35);
-  color: var(--accent);
-  border-radius: 50%;
-  width: 42px; height: 42px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer;
-  font-size: 18px;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s;
-}
-.icon-btn.active { border-color: var(--accent); background: rgba(0,255,180,0.18); }
-.icon-btn:active { background: rgba(0,255,180,0.25); }
-
-/* ── BARRA INFERIOR ── */
-#bottomBar {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  z-index: 20;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: transparent;
+/* INFERIOR: régua + botão */
+#bottomBar{
+  position:absolute;bottom:0;left:0;right:0;
+  z-index:20;
+  padding-bottom:env(safe-area-inset-bottom,0px);
 }
 
 /* Régua */
-#ruler {
-  width: 100%;
-  height: var(--ruler-h);
-  background: rgba(8,8,8,0.92);
-  border-top: 1.5px solid rgba(0,255,180,0.3);
-  position: relative;
-  overflow: hidden;
+#ruler{
+  width:100%;height:64px;
+  background:rgba(6,6,6,.94);
+  border-top:1.5px solid rgba(0,255,180,.28);
+  position:relative;overflow:hidden;
+}
+#rulerCanvas{position:absolute;top:0;left:0;width:100%;height:100%}
+
+/* Faixa do botão — centraliza o botão */
+#controls{
+  display:flex;align-items:center;justify-content:center;
+  padding:12px 0 10px;
+  background:rgba(0,0,0,.82);
+  position:relative;
 }
 
-#rulerCanvas {
-  position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
+/* Thumb — posicionado à esquerda do centro */
+#previewThumb{
+  position:absolute;left:40px;
+  width:52px;height:52px;border-radius:8px;
+  border:2px solid #00ffb4;object-fit:cover;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;visibility:hidden;
 }
 
-/* Controles */
-#controls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 40px 14px;
-  background: rgba(0,0,0,0.78);
+/* Botão de captura — centralizado */
+#captureBtn{
+  width:76px;height:76px;border-radius:50%;
+  background:#fff;border:4px solid #00ffb4;
+  outline:none;cursor:pointer;
+  box-shadow:0 0 0 5px rgba(0,255,180,.2),0 0 20px rgba(0,255,180,.25);
+  -webkit-tap-highlight-color:transparent;
+  flex-shrink:0;transition:transform .1s;
 }
-
-/* Thumb da última foto */
-#previewThumb {
-  width: 54px; height: 54px;
-  border-radius: 8px;
-  border: 2px solid var(--accent);
-  object-fit: cover;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  visibility: hidden;
-}
-
-/* Botão captura */
-#captureBtn {
-  width: 74px; height: 74px;
-  border-radius: 50%;
-  background: #fff;
-  border: 4px solid var(--accent);
-  outline: none;
-  cursor: pointer;
-  position: relative;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 0 0 5px rgba(0,255,180,0.18);
-  flex-shrink: 0;
-}
-#captureBtn:active { transform: scale(0.91); }
-
-/* Placeholder direita (equilíbrio visual) */
-.ctrl-spacer {
-  width: 54px; height: 54px;
-}
+#captureBtn:active{transform:scale(.9)}
 
 /* Flash */
-#flash {
-  position: fixed; inset: 0;
-  background: #fff;
-  opacity: 0;
-  pointer-events: none;
-  z-index: 99;
-  transition: opacity 0.06s;
-}
-#flash.on { opacity: 0.9; }
+#flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:99;transition:opacity .06s}
+#flash.on{opacity:.88}
 
-/* ── LIGHTBOX ── */
-#lightbox {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.93);
-  z-index: 200;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 18px;
-}
-#lightbox.open { display: flex; }
-#lbImg {
-  max-width: 92vw;
-  max-height: 68vh;
-  border-radius: 8px;
-  border: 1px solid rgba(0,255,180,0.3);
-  object-fit: contain;
-}
-.lb-actions { display: flex; gap: 14px; }
-.lb-btn {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 1.5px;
-  padding: 11px 24px;
-  border-radius: 6px;
-  cursor: pointer;
-  border: 1.5px solid var(--accent);
-  background: transparent;
-  color: var(--accent);
-  -webkit-tap-highlight-color: transparent;
-}
-.lb-btn.primary { background: var(--accent); color: #000; font-weight: 600; }
+/* Lightbox */
+#lightbox{position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:200;display:none;align-items:center;justify-content:center;flex-direction:column;gap:18px}
+#lightbox.open{display:flex}
+#lbImg{max-width:92vw;max-height:68vh;border-radius:8px;border:1px solid rgba(0,255,180,.3);object-fit:contain}
+.lb-actions{display:flex;gap:14px}
+.lb-btn{font-family:'Share Tech Mono',monospace;font-size:12px;letter-spacing:1.5px;padding:11px 24px;border-radius:6px;cursor:pointer;border:1.5px solid #00ffb4;background:transparent;color:#00ffb4;-webkit-tap-highlight-color:transparent}
+.lb-btn.primary{background:#00ffb4;color:#000;font-weight:700}
 
 /* Toast */
-#toast {
-  position: fixed;
-  bottom: 140px; left: 50%;
-  transform: translateX(-50%) translateY(14px);
-  background: rgba(0,255,180,0.13);
-  border: 1px solid var(--accent);
-  color: var(--accent);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 1.5px;
-  padding: 8px 20px;
-  border-radius: 20px;
-  opacity: 0;
-  transition: opacity 0.28s, transform 0.28s;
-  pointer-events: none;
-  z-index: 300;
-  white-space: nowrap;
-}
-#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast{position:fixed;bottom:145px;left:50%;transform:translateX(-50%) translateY(14px);background:rgba(0,255,180,.13);border:1px solid #00ffb4;color:#00ffb4;font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:1.5px;padding:8px 20px;border-radius:20px;opacity:0;transition:opacity .28s,transform .28s;pointer-events:none;z-index:300;white-space:nowrap}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 /* Splash */
-#splash {
-  position: fixed; inset: 0;
-  background: #000;
-  display: flex; align-items: center; justify-content: center;
-  flex-direction: column; gap: 20px;
-  z-index: 500;
-  transition: opacity 0.5s;
-}
-#splash.gone { opacity: 0; pointer-events: none; }
-.spl-title { font-family: var(--font-mono); color: var(--accent); font-size: 26px; letter-spacing: 6px; }
-.spl-sub   { color: rgba(255,255,255,0.35); font-size: 12px; letter-spacing: 2px; }
-.spl-bar   { width: 50px; height: 2px; background: rgba(0,255,180,0.18); border-radius: 2px; overflow: hidden; position: relative; }
-.spl-bar::after { content:''; position:absolute; left:-50%; width:50%; height:100%; background:var(--accent); animation: sbar 0.9s infinite ease-in-out; }
-@keyframes sbar { 0%{left:-50%} 100%{left:150%} }
+#splash{position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;z-index:500;transition:opacity .5s}
+#splash.gone{opacity:0;pointer-events:none}
+.spl-title{font-family:'Share Tech Mono',monospace;color:#00ffb4;font-size:26px;letter-spacing:6px}
+.spl-sub{color:rgba(255,255,255,.35);font-size:12px;letter-spacing:2px;font-family:sans-serif}
+.spl-bar{width:50px;height:2px;background:rgba(0,255,180,.18);border-radius:2px;overflow:hidden;position:relative}
+.spl-bar::after{content:'';position:absolute;left:-50%;width:50%;height:100%;background:#00ffb4;animation:sbar .9s infinite ease-in-out}
+@keyframes sbar{0%{left:-50%}100%{left:150%}}
 
-/* Erro câmera */
-#errMsg {
-  position: fixed; inset: 0;
-  background: #000;
-  display: none;
-  align-items: center; justify-content: center;
-  flex-direction: column; gap: 14px;
-  color: rgba(255,255,255,0.5);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  letter-spacing: 1px;
-  text-align: center;
-  padding: 30px;
-  z-index: 400;
-}
-#errMsg.show { display: flex; }
-#errMsg span { font-size: 44px; }
+/* Erro */
+#errMsg{position:fixed;inset:0;background:#000;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;color:rgba(255,255,255,.5);font-family:'Share Tech Mono',monospace;font-size:13px;letter-spacing:1px;text-align:center;padding:30px;z-index:400}
+#errMsg.show{display:flex}
+#errMsg span{font-size:44px}
 </style>
 </head>
 <body>
-
 <div id="splash">
   <div class="spl-title">CAMRÉGUA</div>
   <div class="spl-sub">câmera · grade · régua</div>
   <div class="spl-bar"></div>
 </div>
-
-<div id="errMsg">
-  <span>📷</span>
-  <p>Sem acesso à câmera.<br>Verifique as permissões do navegador.</p>
-</div>
-
+<div id="errMsg"><span>📷</span><p>Sem acesso à câmera.<br>Verifique as permissões.</p></div>
 <div id="flash"></div>
-
 <div id="app">
   <video id="video" autoplay playsinline muted></video>
   <canvas id="gridCanvas"></canvas>
   <canvas id="captureCanvas"></canvas>
-
-  <!-- Topo -->
   <div id="topBar">
     <div class="app-title">CAMRÉGUA</div>
     <div class="top-controls">
-      <div class="icon-btn active" id="gridToggle" title="Grade">⊞</div>
-      <div class="icon-btn" id="flipBtn" title="Virar câmera">🔄</div>
+      <div class="icon-btn active" id="gridToggle">⊞</div>
+      <div class="icon-btn" id="flipBtn">🔄</div>
     </div>
   </div>
-
-  <!-- Inferior -->
   <div id="bottomBar">
     <div id="ruler"><canvas id="rulerCanvas"></canvas></div>
     <div id="controls">
-      <img id="previewThumb" alt="última foto" />
+      <img id="previewThumb" alt="última foto"/>
       <button id="captureBtn" aria-label="Tirar foto"></button>
-      <div class="ctrl-spacer"></div>
     </div>
   </div>
 </div>
-
-<!-- Lightbox -->
 <div id="lightbox">
-  <img id="lbImg" src="" alt="foto capturada" />
+  <img id="lbImg" src="" alt="foto"/>
   <div class="lb-actions">
     <button class="lb-btn" id="lbClose">FECHAR</button>
-    <button class="lb-btn primary" id="lbSave">⬇ SALVAR</button>
+    <button class="lb-btn primary" id="lbSave">⬇ SALVAR NA GALERIA</button>
   </div>
 </div>
-
 <div id="toast"></div>
 
 <script>
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
 // ESTADO
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
 const S = {
   stream: null,
   facing: 'environment',
   showGrid: true,
   lastPhoto: null,
   dpr: Math.min(window.devicePixelRatio || 1, 3),
-  // Calibração DPI — será calculada em init()
-  dpiX: 96,   // px/inch na tela física
-  mmPerPx: 0, // mm por CSS pixel
+  mmPerPx: 0,   // mm por CSS pixel — calibrado abaixo
 };
 
-// ═══════════════════════════════════════════
-// ELEMENTOS
-// ═══════════════════════════════════════════
+// Elementos
 const video        = document.getElementById('video');
 const gridCanvas   = document.getElementById('gridCanvas');
 const captureCanvas= document.getElementById('captureCanvas');
@@ -348,49 +179,39 @@ const lightbox     = document.getElementById('lightbox');
 const lbImg        = document.getElementById('lbImg');
 const lbClose      = document.getElementById('lbClose');
 const lbSave       = document.getElementById('lbSave');
-const toast        = document.getElementById('toast');
-const splash       = document.getElementById('splash');
-const errMsg       = document.getElementById('errMsg');
 const ruler        = document.getElementById('ruler');
+const errMsg       = document.getElementById('errMsg');
+const splash       = document.getElementById('splash');
 
-// ═══════════════════════════════════════════
-// CALIBRAÇÃO DPI
-// A régua precisa medir cm/mm reais.
-// Usamos screen.width + window.innerWidth para
-// estimar a densidade física de pixels.
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
+// CALIBRAÇÃO DPI REAL
+// Usa matchMedia resolution para detectar
+// o DPI físico real da tela do dispositivo
+// ═══════════════════════════════════════
 function calibrateDPI() {
-  // Muitos celulares: screen.width em CSS px ≈ resolução lógica
-  // DPR aproxima a densidade física
-  // 1 inch = 25.4 mm
-  // Estratégia: usar matchMedia para testar dpi real (funciona no Chrome Android/iOS Safari)
-  const dpr = window.devicePixelRatio || 1;
-
-  // Tenta obter DPI real via matchMedia
-  let dpi = 96; // fallback padrão
-  for (const d of [600,480,400,360,300,264,240,216,192,168,160,144,132,120,96,72]) {
+  // Testa do maior para o menor — pega o primeiro que bate
+  const probes = [600,560,520,480,440,400,360,320,294,288,264,240,218,216,
+                  192,168,163,160,144,132,120,110,96,72];
+  let dpi = 96;
+  for (const d of probes) {
     if (window.matchMedia(`(min-resolution: ${d}dpi)`).matches) {
       dpi = d;
       break;
     }
   }
-
-  S.dpiX = dpi;
-  // mm por CSS pixel = (1 inch / dpi) * 25.4 / DPR
-  // Mas como CSS px é independente de DPR, basta: mm = 25.4 / dpi
+  // mm por CSS pixel = 25.4mm / dpi
   S.mmPerPx = 25.4 / dpi;
-
-  console.log(`DPR=${dpr} DPI≈${dpi} mmPerPx=${S.mmPerPx.toFixed(4)}`);
+  console.log(`DPI detectado: ${dpi} | mmPerPx: ${S.mmPerPx.toFixed(5)}`);
 }
 
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
 // CÂMERA
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
 async function startCamera() {
   if (S.stream) S.stream.getTracks().forEach(t => t.stop());
   try {
     S.stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: S.facing, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      video: { facingMode: S.facing, width:{ideal:1920}, height:{ideal:1080} },
       audio: false
     });
     video.srcObject = S.stream;
@@ -404,27 +225,26 @@ async function startCamera() {
 }
 
 function hideSplash() {
-  splash.classList.add('gone');
-  setTimeout(() => splash.style.display = 'none', 600);
+  const sp = document.getElementById('splash');
+  sp.classList.add('gone');
+  setTimeout(() => sp.style.display = 'none', 600);
 }
 
-// ═══════════════════════════════════════════
-// RESIZE — recalcula canvases ao girar
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
+// RESIZE — recalcula ao girar/redimensionar
+// ═══════════════════════════════════════
 function resize() {
-  const W = window.innerWidth;
-  const H = window.innerHeight;
+  const W   = window.innerWidth;
+  const H   = window.innerHeight;
   const dpr = S.dpr;
 
-  // Grid canvas cobre a tela inteira
   gridCanvas.width  = W * dpr;
   gridCanvas.height = H * dpr;
   gridCanvas.style.width  = W + 'px';
   gridCanvas.style.height = H + 'px';
 
-  // Ruler canvas
-  const rh = ruler.offsetHeight;
-  const rw = ruler.offsetWidth;
+  const rw = ruler.offsetWidth  || W;
+  const rh = ruler.offsetHeight || 64;
   rulerCanvas.width  = rw * dpr;
   rulerCanvas.height = rh * dpr;
   rulerCanvas.style.width  = rw + 'px';
@@ -434,9 +254,9 @@ function resize() {
   drawRuler();
 }
 
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
 // GRADE (regra dos terços)
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
 function drawGrid() {
   const W = gridCanvas.width;
   const H = gridCanvas.height;
@@ -445,79 +265,75 @@ function drawGrid() {
   if (!S.showGrid) return;
 
   gCtx.save();
-  gCtx.strokeStyle = 'rgba(0,255,180,0.42)';
-  gCtx.lineWidth = 1.2 * dpr;
 
-  // Linhas verticais dos terços
+  // Linhas dos terços
+  gCtx.strokeStyle = 'rgba(0,255,180,0.42)';
+  gCtx.lineWidth   = 1.2 * dpr;
   for (let i = 1; i <= 2; i++) {
-    const x = (W / 3) * i;
-    gCtx.beginPath(); gCtx.moveTo(x,0); gCtx.lineTo(x,H); gCtx.stroke();
-  }
-  // Linhas horizontais dos terços
-  for (let i = 1; i <= 2; i++) {
-    const y = (H / 3) * i;
-    gCtx.beginPath(); gCtx.moveTo(0,y); gCtx.lineTo(W,y); gCtx.stroke();
+    gCtx.beginPath(); gCtx.moveTo(W/3*i, 0);   gCtx.lineTo(W/3*i, H);   gCtx.stroke();
+    gCtx.beginPath(); gCtx.moveTo(0,     H/3*i); gCtx.lineTo(W,     H/3*i); gCtx.stroke();
   }
 
   // Pontos de intersecção
-  gCtx.fillStyle = 'rgba(0,255,180,0.82)';
-  const pts = [[W/3,H/3],[2*W/3,H/3],[W/3,2*H/3],[2*W/3,2*H/3]];
-  for (const [px,py] of pts) {
-    gCtx.beginPath(); gCtx.arc(px,py,4*dpr,0,Math.PI*2); gCtx.fill();
+  gCtx.fillStyle = 'rgba(0,255,180,0.85)';
+  for (const [px,py] of [[W/3,H/3],[2*W/3,H/3],[W/3,2*H/3],[2*W/3,2*H/3]]) {
+    gCtx.beginPath(); gCtx.arc(px, py, 4*dpr, 0, Math.PI*2); gCtx.fill();
   }
 
   // Cruz central
-  const cs = 18*dpr;
-  const cx = W/2, cy = H/2;
+  const cs = 18 * dpr;
   gCtx.strokeStyle = 'rgba(0,255,180,0.72)';
-  gCtx.lineWidth = 1.5*dpr;
+  gCtx.lineWidth   = 1.5 * dpr;
   gCtx.beginPath();
-  gCtx.moveTo(cx-cs,cy); gCtx.lineTo(cx+cs,cy);
-  gCtx.moveTo(cx,cy-cs); gCtx.lineTo(cx,cy+cs);
+  gCtx.moveTo(W/2-cs, H/2); gCtx.lineTo(W/2+cs, H/2);
+  gCtx.moveTo(W/2, H/2-cs); gCtx.lineTo(W/2, H/2+cs);
   gCtx.stroke();
 
   gCtx.restore();
 }
 
-// ═══════════════════════════════════════════
-// RÉGUA REAL em cm/mm
-// Idêntica à imagem enviada:
-//  - ticks crescem de cima para baixo
-//  - traço grande = cm (com número abaixo)
-//  - traço médio  = 0.5 cm
-//  - traço pequeno = mm
-//  - número fica na parte INFERIOR do traço cm
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
+// RÉGUA — mm/cm reais como numa régua física
+//
+// Layout igual à régua TR-10 da imagem:
+//  - linha de base no TOPO
+//  - traços descem para baixo
+//  - traço cm   = 70% da altura
+//  - traço 5mm  = 45% da altura
+//  - traço 1mm  = 25% da altura
+//  - número do cm fica ABAIXO do traço, junto à base
+// ═══════════════════════════════════════
 function drawRuler() {
   const W   = rulerCanvas.width;
   const H   = rulerCanvas.height;
   const dpr = S.dpr;
+
   rCtx.clearRect(0, 0, W, H);
 
-  // px por mm no canvas (já multiplicado pelo DPR)
-  const pxPerMm = (S.dpiX / 25.4) * dpr;
-  const pxPerCm = pxPerMm * 10;
+  // pixels de canvas por mm
+  const pxPerMm = (1 / S.mmPerPx) * dpr;   // CSS_px_per_mm * dpr
+  const totalMm = Math.ceil(W / pxPerMm) + 2;
+
+  const baseY  = 1.5 * dpr;               // linha de base (topo)
+  const tCm    = H * 0.68;                // altura traço cm
+  const tHalf  = H * 0.44;                // altura traço 5mm
+  const tMm    = H * 0.24;                // altura traço 1mm
 
   rCtx.save();
-
-  // Linha topo da régua (base dos traços)
-  const baseY = 1 * dpr;
   rCtx.strokeStyle = '#00ffb4';
+  rCtx.fillStyle   = '#00ffb4';
   rCtx.lineWidth   = 1 * dpr;
-  rCtx.beginPath(); rCtx.moveTo(0, baseY); rCtx.lineTo(W, baseY); rCtx.stroke();
 
-  // Alturas dos traços (em pixels do canvas)
-  const tickCm   = H * 0.72;  // traço de cm — alto
-  const tickHalf = H * 0.48;  // traço de meio cm
-  const tickMm   = H * 0.28;  // traço de mm
+  // Linha base horizontal
+  rCtx.beginPath();
+  rCtx.moveTo(0, baseY);
+  rCtx.lineTo(W, baseY);
+  rCtx.stroke();
 
-  // Fonte para os números
-  const fontSize = Math.round(10 * dpr);
-  rCtx.font      = `${fontSize}px 'Share Tech Mono', monospace`;
-  rCtx.fillStyle = '#00ffb4';
+  // Fonte
+  const fs = Math.round(Math.max(8, 9) * dpr);
+  rCtx.font      = `${fs}px 'Share Tech Mono', monospace`;
   rCtx.textAlign = 'center';
-
-  const totalMm = Math.ceil(W / pxPerMm) + 2;
 
   for (let mm = 0; mm <= totalMm; mm++) {
     const x = mm * pxPerMm;
@@ -525,15 +341,13 @@ function drawRuler() {
 
     let tH;
     if (mm % 10 === 0) {
-      // traço de centímetro
-      tH = tickCm;
-      const cm = mm / 10;
-      // número embaixo do traço (como na régua real)
-      rCtx.fillText(String(cm), x, H - 2*dpr);
+      tH = tCm;
+      // Número do centímetro na parte baixa (como na régua real)
+      rCtx.fillText(String(mm / 10), x, H - 2 * dpr);
     } else if (mm % 5 === 0) {
-      tH = tickHalf;
+      tH = tHalf;
     } else {
-      tH = tickMm;
+      tH = tMm;
     }
 
     rCtx.beginPath();
@@ -545,45 +359,39 @@ function drawRuler() {
   rCtx.restore();
 }
 
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
 // CAPTURA — grava grade + régua na foto
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
 async function capturePhoto() {
-  // Dimensão real do frame de vídeo
   const vw = video.videoWidth  || window.innerWidth;
   const vh = video.videoHeight || window.innerHeight;
 
-  // Proporção CSS→vídeo
-  const ratioW = vw / window.innerWidth;
-  const ratioH = vh / window.innerHeight;
+  const scaleW = vw / window.innerWidth;
+  const scaleH = vh / window.innerHeight;
 
-  // Altura da régua em pixels de vídeo
-  const rulerCssPx = ruler.offsetHeight;
-  const rulerVpx   = rulerCssPx * ratioH;
+  const rulerCssH  = ruler.offsetHeight;
+  const rulerVidH  = rulerCssH * scaleH;
 
   captureCanvas.width  = vw;
   captureCanvas.height = vh;
 
-  // 1) Frame da câmera
+  // Frame da câmera
   cCtx.drawImage(video, 0, 0, vw, vh);
 
-  // 2) Grade
+  // Grade
   if (S.showGrid) {
     cCtx.save();
     cCtx.strokeStyle = 'rgba(0,255,180,0.48)';
-    cCtx.lineWidth   = Math.max(1, 1.5 * ratioW);
-
+    cCtx.lineWidth   = Math.max(1, 1.5 * scaleW);
     for (let i = 1; i <= 2; i++) {
-      cCtx.beginPath(); cCtx.moveTo(vw/3*i,0); cCtx.lineTo(vw/3*i,vh); cCtx.stroke();
-      cCtx.beginPath(); cCtx.moveTo(0,vh/3*i); cCtx.lineTo(vw,vh/3*i); cCtx.stroke();
+      cCtx.beginPath(); cCtx.moveTo(vw/3*i,0);  cCtx.lineTo(vw/3*i,vh);  cCtx.stroke();
+      cCtx.beginPath(); cCtx.moveTo(0,vh/3*i);  cCtx.lineTo(vw,vh/3*i);  cCtx.stroke();
     }
-
     cCtx.fillStyle = 'rgba(0,255,180,0.85)';
     for (const [px,py] of [[vw/3,vh/3],[2*vw/3,vh/3],[vw/3,2*vh/3],[2*vw/3,2*vh/3]]) {
-      cCtx.beginPath(); cCtx.arc(px,py,5*ratioW,0,Math.PI*2); cCtx.fill();
+      cCtx.beginPath(); cCtx.arc(px,py,5*scaleW,0,Math.PI*2); cCtx.fill();
     }
-
-    const cs = 20*ratioW;
+    const cs = 20*scaleW;
     cCtx.strokeStyle = 'rgba(0,255,180,0.72)';
     cCtx.beginPath();
     cCtx.moveTo(vw/2-cs,vh/2); cCtx.lineTo(vw/2+cs,vh/2);
@@ -592,38 +400,38 @@ async function capturePhoto() {
     cCtx.restore();
   }
 
-  // 3) Régua na parte inferior
-  drawRulerOnCapture(cCtx, vw, vh, rulerVpx, ratioW);
+  // Régua
+  drawRulerOnCapture(cCtx, vw, vh, rulerVidH, scaleW, scaleH);
 
   return captureCanvas.toDataURL('image/jpeg', 0.95);
 }
 
-function drawRulerOnCapture(ctx, vw, vh, rulerH, ratioW) {
-  // Fundo
+function drawRulerOnCapture(ctx, vw, vh, rulerH, scaleW, scaleH) {
   ctx.save();
-  ctx.fillStyle = 'rgba(8,8,8,0.92)';
+
+  // Fundo
+  ctx.fillStyle = 'rgba(6,6,6,0.94)';
   ctx.fillRect(0, vh - rulerH, vw, rulerH);
 
   // Borda topo
-  ctx.strokeStyle = 'rgba(0,255,180,0.3)';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(0,255,180,0.28)';
+  ctx.lineWidth   = scaleH;
   ctx.beginPath(); ctx.moveTo(0,vh-rulerH); ctx.lineTo(vw,vh-rulerH); ctx.stroke();
 
-  // Escala em pixels de vídeo (DPI real calibrado)
-  const pxPerMm = (S.dpiX / 25.4) * ratioW;
-  const totalMm = Math.ceil(vw / pxPerMm) + 2;
+  // Escala — usa mesma calibração mm->px ajustada pela escala do vídeo
+  const pxPerMm  = (1 / S.mmPerPx) * scaleW;
+  const totalMm  = Math.ceil(vw / pxPerMm) + 2;
+  const baseY    = vh - rulerH + scaleH;
+  const tCm      = rulerH * 0.68;
+  const tHalf    = rulerH * 0.44;
+  const tMm      = rulerH * 0.24;
+  const fs       = Math.round(Math.max(8, 9 * scaleW));
 
-  const baseY    = vh - rulerH + 1;
-  const tickCm   = rulerH * 0.72;
-  const tickHalf = rulerH * 0.48;
-  const tickMm   = rulerH * 0.28;
-
-  const fontSize = Math.round(Math.max(8, 10 * ratioW));
-  ctx.font      = `${fontSize}px monospace`;
-  ctx.fillStyle = '#00ffb4';
   ctx.strokeStyle = '#00ffb4';
-  ctx.lineWidth = Math.max(1, ratioW);
-  ctx.textAlign = 'center';
+  ctx.fillStyle   = '#00ffb4';
+  ctx.lineWidth   = Math.max(1, scaleW);
+  ctx.font        = `${fs}px monospace`;
+  ctx.textAlign   = 'center';
 
   ctx.beginPath(); ctx.moveTo(0,baseY); ctx.lineTo(vw,baseY); ctx.stroke();
 
@@ -632,44 +440,98 @@ function drawRulerOnCapture(ctx, vw, vh, rulerH, ratioW) {
     if (x > vw + 1) break;
     let tH;
     if (mm % 10 === 0) {
-      tH = tickCm;
-      ctx.fillText(String(mm/10), x, vh - 2*ratioW);
+      tH = tCm;
+      ctx.fillText(String(mm/10), x, vh - 2*scaleH);
     } else if (mm % 5 === 0) {
-      tH = tickHalf;
+      tH = tHalf;
     } else {
-      tH = tickMm;
+      tH = tMm;
     }
     ctx.beginPath(); ctx.moveTo(x,baseY); ctx.lineTo(x,baseY+tH); ctx.stroke();
   }
+
   ctx.restore();
 }
 
-// ═══════════════════════════════════════════
-// EVENTOS
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
+// SALVAR NA GALERIA
+//
+// iOS Safari / Chrome Android:
+//   Web Share API com arquivo de imagem
+//   → sistema salva direto na galeria de fotos
+//
+// Fallback (desktop/browsers sem share):
+//   <a download> dispara o download
+// ═══════════════════════════════════════
+async function saveToGallery(dataUrl) {
+  const filename = `camregua_${Date.now()}.jpg`;
 
-// Botão captura — usa touchend para iOS PWA (evita bug de click bloqueado)
+  // Converte dataUrl → Blob → File
+  const res  = await fetch(dataUrl);
+  const blob = await res.blob();
+  const file = new File([blob], filename, { type: 'image/jpeg' });
+
+  // Web Share API — único jeito real de salvar na galeria via PWA
+  if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({
+        files: [file],
+        title: 'CamRégua',
+      });
+      showToast('✓ SALVO NA GALERIA');
+      return;
+    } catch(e) {
+      if (e.name !== 'AbortError') console.warn(e);
+      // usuário cancelou ou erro — tenta fallback
+    }
+  }
+
+  // Fallback: link de download (salva em Downloads, não na galeria)
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+  showToast('⬇ FOTO BAIXADA');
+}
+
+// ═══════════════════════════════════════
+// CAPTURA — evento do botão
+// ═══════════════════════════════════════
+let capturing = false;
+
 function doCapture(e) {
   e.preventDefault();
   e.stopPropagation();
+  if (capturing) return;
+  capturing = true;
 
   flash.classList.add('on');
   setTimeout(() => flash.classList.remove('on'), 130);
 
-  capturePhoto().then(dataUrl => {
+  capturePhoto().then(async dataUrl => {
     S.lastPhoto = dataUrl;
     previewThumb.src = dataUrl;
     previewThumb.style.visibility = 'visible';
-    showToast('✓ FOTO CAPTURADA');
+
+    // Salva automaticamente na galeria ao capturar
+    await saveToGallery(dataUrl);
   }).catch(err => {
-    console.error('Capture error:', err);
+    console.error(err);
     showToast('Erro ao capturar');
+  }).finally(() => {
+    capturing = false;
   });
 }
 
 captureBtn.addEventListener('touchend', doCapture, { passive: false });
-captureBtn.addEventListener('click', doCapture);
+captureBtn.addEventListener('click',    doCapture);
 
+// ═══════════════════════════════════════
+// OUTROS EVENTOS
+// ═══════════════════════════════════════
 flipBtn.addEventListener('click', () => {
   S.facing = S.facing === 'environment' ? 'user' : 'environment';
   startCamera();
@@ -681,93 +543,48 @@ gridToggle.addEventListener('click', () => {
   drawGrid();
 });
 
-previewThumb.addEventListener('click', openLightbox);
-lbClose.addEventListener('click', () => lightbox.classList.remove('open'));
-lbSave.addEventListener('click', savePhoto);
-
-// ═══════════════════════════════════════════
-// LIGHTBOX
-// ═══════════════════════════════════════════
-function openLightbox() {
+previewThumb.addEventListener('click', () => {
   if (!S.lastPhoto) return;
   lbImg.src = S.lastPhoto;
   lightbox.classList.add('open');
-}
+});
 
-// ═══════════════════════════════════════════
-// SALVAR
-// ═══════════════════════════════════════════
-async function savePhoto() {
-  if (!S.lastPhoto) return;
-  const filename = `camregua_${Date.now()}.jpg`;
+lbClose.addEventListener('click', () => lightbox.classList.remove('open'));
+lbSave.addEventListener('click',  () => S.lastPhoto && saveToGallery(S.lastPhoto));
 
-  // Web Share (mobile nativo)
-  if (navigator.share && navigator.canShare) {
-    try {
-      const blob = await (await fetch(S.lastPhoto)).blob();
-      const file = new File([blob], filename, { type: 'image/jpeg' });
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'CamRégua' });
-        showToast('✓ COMPARTILHADO');
-        return;
-      }
-    } catch(e) { /* fallback */ }
-  }
-
-  // Download direto
-  const a = document.createElement('a');
-  a.href = S.lastPhoto;
-  a.download = filename;
-  a.click();
-  showToast('✓ DOWNLOAD INICIADO');
-}
-
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
 // TOAST
-// ═══════════════════════════════════════════
-let _toastT;
+// ═══════════════════════════════════════
+let _tt;
 function showToast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.classList.add('show');
-  clearTimeout(_toastT);
-  _toastT = setTimeout(() => el.classList.remove('show'), 2400);
+  clearTimeout(_tt);
+  _tt = setTimeout(() => el.classList.remove('show'), 2500);
 }
 
-// ═══════════════════════════════════════════
-// LOOP DE ANIMAÇÃO DA GRADE
-// ═══════════════════════════════════════════
-function loop() {
-  drawGrid();
-  requestAnimationFrame(loop);
-}
+// ═══════════════════════════════════════
+// LOOP DE GRADE
+// ═══════════════════════════════════════
+function loop() { drawGrid(); requestAnimationFrame(loop); }
 
-// ═══════════════════════════════════════════
-// ORIENTAÇÃO — recalcula tudo ao girar
-// ═══════════════════════════════════════════
-function handleOrientationChange() {
-  // Aguarda o browser concluir a mudança de layout
-  setTimeout(() => {
-    resize();
-  }, 350);
-}
-
+// ═══════════════════════════════════════
+// ORIENTAÇÃO
+// ═══════════════════════════════════════
 window.addEventListener('resize', resize);
-window.addEventListener('orientationchange', handleOrientationChange);
+window.addEventListener('orientationchange', () => setTimeout(resize, 380));
 
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
 // INIT
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
 calibrateDPI();
 resize();
 startCamera();
 loop();
 
-// Service Worker (PWA offline)
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(console.warn);
-  });
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(console.warn));
 }
 </script>
 </body>
