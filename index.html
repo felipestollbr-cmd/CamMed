@@ -53,19 +53,55 @@
       cursor: crosshair;
     }
 
-    /* Barra inferior estilo iPhone com dois botões */
+    /* Seletor de modo (Foto / Vídeo) estilo iPhone */
+    .mode-selector {
+      position: absolute;
+      top: 50px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(20px);
+      padding: 8px 16px;
+      border-radius: 40px;
+      width: fit-content;
+      margin: 0 auto;
+      z-index: 20;
+    }
+    .mode-btn {
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.6);
+      font-size: 16px;
+      font-weight: 600;
+      padding: 6px 20px;
+      border-radius: 30px;
+      transition: 0.2s;
+      cursor: pointer;
+    }
+    .mode-btn.active {
+      background: rgba(255,255,255,0.3);
+      color: white;
+    }
+    .mode-btn:active {
+      transform: scale(0.96);
+    }
+
+    /* Barra inferior estilo iPhone */
     .control-bar {
       background: rgba(0, 0, 0, 0.5);
       backdrop-filter: blur(20px);
       display: flex;
-      justify-content: space-between;
+      justify-content: center;
       align-items: center;
-      padding: 16px 30px 30px;
+      padding: 16px 0 30px;
       border-top: 0.5px solid rgba(255,255,255,0.2);
-      gap: 20px;
+      position: relative;
     }
 
-    /* Botão de captura de foto (centralizado, maior) */
+    /* Botão de captura (único) */
     .capture-btn {
       width: 76px;
       height: 76px;
@@ -79,7 +115,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      flex-shrink: 0;
+      margin-top: -20px;
     }
     .capture-btn:active {
       transform: scale(0.94);
@@ -89,43 +125,36 @@
       height: 64px;
       border-radius: 50%;
       background: #ff3366;
+      transition: 0.1s;
     }
-    .capture-btn:active .inner-dot {
-      background: #cc0044;
-    }
-
-    /* Botão de vídeo / instalação */
-    .action-btn {
-      background: rgba(255,255,255,0.2);
-      border: none;
-      border-radius: 40px;
-      padding: 12px 20px;
-      color: white;
-      font-size: 16px;
-      font-weight: 500;
-      backdrop-filter: blur(10px);
-      cursor: pointer;
-      transition: 0.2s;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .action-btn:active {
-      background: rgba(255,255,255,0.4);
-      transform: scale(0.96);
-    }
-    .action-btn.recording {
+    /* Modo vídeo - botão fica vermelho */
+    .capture-btn.video-mode .inner-dot {
       background: #ff3b30;
-      color: white;
+    }
+    .capture-btn.recording .inner-dot {
+      background: #ff3b30;
       animation: pulse 1s infinite;
     }
     @keyframes pulse {
-      0% { opacity: 1; }
-      50% { opacity: 0.7; }
-      100% { opacity: 1; }
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.8; }
+      100% { transform: scale(1); opacity: 1; }
     }
+
     .install-btn {
+      position: absolute;
+      right: 20px;
+      bottom: 20px;
       background: #34c759;
+      border: none;
+      border-radius: 30px;
+      padding: 8px 16px;
+      color: white;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      z-index: 20;
+      display: none;
     }
     .info {
       position: absolute;
@@ -135,7 +164,6 @@
       text-align: center;
       color: rgba(255,255,255,0.6);
       font-size: 12px;
-      font-weight: 500;
       background: rgba(0,0,0,0.4);
       padding: 4px 8px;
       width: fit-content;
@@ -143,7 +171,6 @@
       border-radius: 20px;
       backdrop-filter: blur(10px);
       pointer-events: none;
-      z-index: 10;
     }
     .toast {
       position: fixed;
@@ -161,10 +188,6 @@
       transition: opacity 0.3s;
       white-space: nowrap;
     }
-    @media (max-width: 600px) {
-      .action-btn { padding: 8px 16px; font-size: 14px; }
-      .control-bar { padding: 12px 20px 25px; }
-    }
   </style>
 </head>
 <body>
@@ -172,16 +195,19 @@
   <div class="canvas-wrapper">
     <canvas id="mainCanvas"></canvas>
   </div>
+  <div class="mode-selector">
+    <button id="photoModeBtn" class="mode-btn active">📷 Foto</button>
+    <button id="videoModeBtn" class="mode-btn">🎥 Vídeo</button>
+  </div>
   <div class="control-bar">
-    <button id="videoBtn" class="action-btn">🎥 Iniciar Vídeo</button>
     <button class="capture-btn" id="captureBtn">
       <div class="inner-dot"></div>
     </button>
-    <button id="installBtn" class="action-btn install-btn" style="display: none;">📲 Instalar</button>
   </div>
-  <div class="info">📷 Foto • 🎥 Vídeo com grade/régua • Toque no centro para foto</div>
+  <div class="info" id="infoMsg">📷 Modo Foto • Toque para capturar</div>
+  <button id="installBtn" class="install-btn">📲 Instalar</button>
 </div>
-<div id="toast" class="toast">📸 Foto capturada!</div>
+<div id="toast" class="toast">✅ Pronto!</div>
 
 <script>
   (function() {
@@ -206,10 +232,11 @@
     const SCALE_Y_POS = 40;
     const SCALE_VALUES = [-3, -2, -1, 0, 1, 2, 3];
 
-    // --- Variáveis de gravação de vídeo ---
+    // --- Estado do app ---
+    let currentMode = 'photo'; // 'photo' ou 'video'
+    let isRecording = false;
     let mediaRecorder = null;
     let recordedChunks = [];
-    let isRecording = false;
     let canvasStream = null;
 
     // --- Inicializar câmera (traseira) ---
@@ -242,7 +269,7 @@
           return true;
         } catch(e) {
           console.error("Erro fatal na câmera", e);
-          document.querySelector('.info').innerHTML = "❌ Sem acesso à câmera. Verifique permissões.";
+          document.getElementById('infoMsg').innerHTML = "❌ Sem acesso à câmera. Verifique permissões.";
           return false;
         }
       }
@@ -376,7 +403,7 @@
       frame();
     }
 
-    // --- Captura de foto (igual antes) ---
+    // --- Função de captura de foto (compartilhar/salvar) ---
     async function capturePhoto() {
       drawFrame();
       canvas.toBlob(async (blob) => {
@@ -401,40 +428,45 @@
       showToast("📁 Imagem baixada");
     }
 
-    // --- Gravação de vídeo (captura do canvas) ---
+    // --- Gravação de vídeo (canvas stream) ---
     async function startRecording() {
       if (isRecording) return;
-      // Cria um stream a partir do canvas (captura o canvas a cada frame)
-      const fps = 30;
-      canvasStream = canvas.captureStream(fps);
-      // Opcional: adicionar áudio do microfone? (se precisar, descomentar)
-      // try { const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true }); audioStream.getTracks().forEach(track => canvasStream.addTrack(track)); } catch(e) {}
-      mediaRecorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm' });
-      recordedChunks = [];
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) recordedChunks.push(event.data);
-      };
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(recordedChunks, { type: 'video/webm' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `camed_video_${Date.now()}.webm`;
-        a.click();
-        URL.revokeObjectURL(url);
-        showToast("🎥 Vídeo salvo (verifique Downloads)");
+      try {
+        // Captura o canvas em 30 fps
+        canvasStream = canvas.captureStream(30);
+        // Se quiser áudio do microfone, descomente:
+        // let audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // audioStream.getTracks().forEach(track => canvasStream.addTrack(track));
+        mediaRecorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm' });
         recordedChunks = [];
-        if (canvasStream) canvasStream.getTracks().forEach(t => t.stop());
-        canvasStream = null;
-        document.getElementById('videoBtn').classList.remove('recording');
-        document.getElementById('videoBtn').innerHTML = '🎥 Iniciar Vídeo';
-        isRecording = false;
-      };
-      mediaRecorder.start(1000); // captura a cada segundo
-      isRecording = true;
-      document.getElementById('videoBtn').classList.add('recording');
-      document.getElementById('videoBtn').innerHTML = '⏹️ Parar Gravação';
-      showToast("🔴 Gravando vídeo com grade e régua...");
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) recordedChunks.push(event.data);
+        };
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(recordedChunks, { type: 'video/webm' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `camed_video_${Date.now()}.webm`;
+          a.click();
+          URL.revokeObjectURL(url);
+          showToast("🎥 Vídeo salvo (verifique Downloads)");
+          if (canvasStream) canvasStream.getTracks().forEach(t => t.stop());
+          canvasStream = null;
+          isRecording = false;
+          const captureBtn = document.getElementById('captureBtn');
+          captureBtn.classList.remove('recording');
+          updateButtonUI();
+        };
+        mediaRecorder.start(1000); // salva chunks a cada segundo
+        isRecording = true;
+        const captureBtn = document.getElementById('captureBtn');
+        captureBtn.classList.add('recording');
+        showToast("🔴 Gravando vídeo com grade e régua...");
+      } catch (err) {
+        console.error("Erro ao iniciar gravação:", err);
+        showToast("Erro ao iniciar gravação");
+      }
     }
 
     function stopRecording() {
@@ -443,9 +475,52 @@
       }
     }
 
-    function toggleRecording() {
-      if (isRecording) stopRecording();
-      else startRecording();
+    // --- Ação principal do botão central (foto ou vídeo) ---
+    function onMainCapture() {
+      if (currentMode === 'photo') {
+        capturePhoto();
+      } else { // modo vídeo
+        if (isRecording) {
+          stopRecording();
+        } else {
+          startRecording();
+        }
+      }
+    }
+
+    // --- Alternar entre modos Foto e Vídeo ---
+    function setMode(mode) {
+      currentMode = mode;
+      const photoBtn = document.getElementById('photoModeBtn');
+      const videoBtn = document.getElementById('videoModeBtn');
+      const captureBtn = document.getElementById('captureBtn');
+      const infoMsg = document.getElementById('infoMsg');
+      if (mode === 'photo') {
+        photoBtn.classList.add('active');
+        videoBtn.classList.remove('active');
+        captureBtn.classList.remove('video-mode');
+        if (!isRecording) captureBtn.classList.remove('recording');
+        infoMsg.innerHTML = "📷 Modo Foto • Toque para capturar";
+      } else {
+        videoBtn.classList.add('active');
+        photoBtn.classList.remove('active');
+        captureBtn.classList.add('video-mode');
+        infoMsg.innerHTML = "🎥 Modo Vídeo • Toque para iniciar/parar gravação";
+      }
+      // Se estava gravando e mudou de modo, para a gravação
+      if (isRecording && mode === 'photo') {
+        stopRecording();
+      }
+      updateButtonUI();
+    }
+
+    function updateButtonUI() {
+      const captureBtn = document.getElementById('captureBtn');
+      if (currentMode === 'video' && isRecording) {
+        captureBtn.classList.add('recording');
+      } else {
+        captureBtn.classList.remove('recording');
+      }
     }
 
     // --- Instalação do PWA ---
@@ -454,7 +529,7 @@
       e.preventDefault();
       deferredPrompt = e;
       const installBtn = document.getElementById('installBtn');
-      installBtn.style.display = 'flex';
+      installBtn.style.display = 'block';
       installBtn.onclick = async () => {
         if (deferredPrompt) {
           deferredPrompt.prompt();
@@ -467,9 +542,10 @@
       };
     });
 
-    // --- Eventos UI ---
-    document.getElementById('captureBtn').addEventListener('click', capturePhoto);
-    document.getElementById('videoBtn').addEventListener('click', toggleRecording);
+    // --- Eventos de UI ---
+    document.getElementById('captureBtn').addEventListener('click', onMainCapture);
+    document.getElementById('photoModeBtn').addEventListener('click', () => setMode('photo'));
+    document.getElementById('videoModeBtn').addEventListener('click', () => setMode('video'));
 
     function showToast(msg) {
       const toast = document.getElementById('toast');
@@ -480,6 +556,7 @@
 
     // Inicializar
     initCamera();
+    setMode('photo');
   })();
 </script>
 </body>
