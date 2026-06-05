@@ -1,24 +1,24 @@
 {
-  "name": "CamRégua",
-  "short_name": "CamRégua",
-  "description": "Câmera com grade de enquadramento e régua em cm/mm gravadas na foto",
-  "start_url": "./index.html",
-  "display": "fullscreen",
-  "orientation": "any",
-  "background_color": "#0a0a0a",
-  "theme_color": "#0a0a0a",
+  "name": "CamMed - Régua com Câmera",
+  "short_name": "CamMed",
+  "description": "Meça objetos em tempo real com a câmera do celular. Régua em mm/cm, calibração precisa e captura de imagem.",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#0a0f1e",
+  "orientation": "portrait",
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' fill='%231e6f3f'/%3E%3Ccircle cx='96' cy='96' r='40' fill='white'/%3E%3Crect x='68' y='44' width='56' height='12' fill='white'/%3E%3C/svg%3E",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     },
     {
-      "src": "icon-512.png",
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%231e6f3f'/%3E%3Ccircle cx='256' cy='256' r='106' fill='white'/%3E%3Crect x='180' y='116' width='152' height='32' fill='white'/%3E%3C/svg%3E",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
-  ],
-  "categories": ["photography", "utilities"],
-  "lang": "pt-BR"
+  ]
 }

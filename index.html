@@ -2,14 +2,18 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>CamMed - Régua com Câmera</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <style>
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      user-select: none; /* Evita seleção indesejada durante calibração */
+      user-select: none;
     }
 
     body {
@@ -19,7 +23,7 @@
       align-items: center;
       min-height: 100vh;
       font-family: 'Segoe UI', 'Roboto', system-ui, -apple-system, sans-serif;
-      padding: 16px;
+      padding: 12px;
     }
 
     .app-container {
@@ -45,7 +49,7 @@
       cursor: crosshair;
     }
 
-    /* Área dos controles: botão de captura centralizado e mais elevado */
+    /* Barra do botão de captura: centralizado e mais alto */
     .control-bar {
       background: rgba(0, 0, 0, 0.75);
       backdrop-filter: blur(10px);
@@ -56,7 +60,6 @@
       position: relative;
     }
 
-    /* Botão de captura estilizado, centralizado e um pouco mais para cima */
     .capture-btn {
       width: 76px;
       height: 76px;
@@ -70,7 +73,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-top: -20px;  /* Move o botão um pouco para cima */
+      margin-top: -20px;  /* move o botão para cima */
     }
 
     .capture-btn:active {
@@ -90,7 +93,6 @@
       background: #cc0044;
     }
 
-    /* Botões de calibração em linha */
     .calibration-panel {
       display: flex;
       gap: 12px;
@@ -186,7 +188,7 @@
 
 <script>
   (function() {
-    // ----- ELEMENTOS -----
+    // --- Elementos ---
     const video = document.createElement('video');
     video.setAttribute('autoplay', '');
     video.setAttribute('playsinline', '');
@@ -196,112 +198,133 @@
     const canvas = document.getElementById('mainCanvas');
     const ctx = canvas.getContext('2d');
 
-    // ----- CONFIGURAÇÕES DA RÉGUA e CALIBRAÇÃO -----
+    // --- Estado da calibração (persistido no localStorage) ---
     let calibrated = false;
-    let pixelsPerMm = 0;        // quantos pixels representam 1 mm real (ex: 3.0 px/mm)
-    let calibrationPoints = [];  // armazena pontos para calibração
+    let pixelsPerMm = 0;
+    let calibrationPoints = [];
     let calibrationMode = false;
-    let expectedDistanceMM = 0;
-    let tempPoint = null;
 
-    // Parâmetros da régua (posição e aparência)
-    const RULER_HEIGHT = 56;       // altura da régua em pixels (área das marcações)
-    const RULER_BG_OPACITY = 0.92;
+    // --- Configuração da régua ---
+    const RULER_HEIGHT = 56;
     const TICK_MM_HEIGHT = 8;
     const TICK_5MM_HEIGHT = 14;
     const TICK_CM_HEIGHT = 22;
     const FONT_SIZE = 12;
 
-    // Flag para evitar múltiplos loops
     let animationId = null;
-    let streamActive = true;
 
-    // ----- INICIALIZAÇÃO DA CÂMERA (preferir traseira) -----
+    // --- Carregar calibração salva ---
+    function loadCalibration() {
+      const saved = localStorage.getItem('camed_calibration');
+      if (saved) {
+        try {
+          const data = JSON.parse(saved);
+          if (data.pixelsPerMm && data.pixelsPerMm > 0) {
+            pixelsPerMm = data.pixelsPerMm;
+            calibrated = true;
+            document.getElementById('calibStatus').innerHTML = `✅ CALIBRADO! ${(pixelsPerMm * 10).toFixed(2)} px/cm | 1mm = ${pixelsPerMm.toFixed(2)}px`;
+            document.getElementById('calibStatus').style.color = "#aaffaa";
+          }
+        } catch(e) {}
+      }
+    }
+
+    function saveCalibration() {
+      if (calibrated && pixelsPerMm > 0) {
+        localStorage.setItem('camed_calibration', JSON.stringify({ pixelsPerMm }));
+      } else {
+        localStorage.removeItem('camed_calibration');
+      }
+    }
+
+    // --- Inicializar câmera (traseira) ---
     async function initCamera() {
       try {
-        const constraints = {
+        let constraints = {
           video: {
-            facingMode: { exact: "environment" }, // câmera traseira
+            facingMode: { exact: "environment" },
             width: { ideal: 1280 },
             height: { ideal: 720 }
           }
         };
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        let stream = await navigator.mediaDevices.getUserMedia(constraints);
         video.srcObject = stream;
         await video.play();
-        // Ajusta canvas para mesma proporção do vídeo
-        function resizeCanvas() {
-          const container = canvas.parentElement;
-          const maxWidth = container.clientWidth;
-          const videoRatio = video.videoWidth / video.videoHeight;
-          let canvasWidth = maxWidth;
-          let canvasHeight = canvasWidth / videoRatio;
-          if (canvasHeight > window.innerHeight * 0.7) {
-            canvasHeight = window.innerHeight * 0.7;
-            canvasWidth = canvasHeight * videoRatio;
-          }
-          canvas.width = canvasWidth;
-          canvas.height = canvasHeight;
-        }
-        video.addEventListener('loadedmetadata', () => {
-          resizeCanvas();
-          startDrawLoop();
-        });
-        window.addEventListener('resize', () => {
-          if (video.videoWidth) resizeCanvas();
-        });
+        resizeCanvasToVideo();
+        startDrawLoop();
+        return true;
       } catch (err) {
-        console.error("Erro ao acessar câmera: ", err);
-        document.getElementById('calibStatus').innerHTML = "❌ Erro ao acessar câmera. Verifique permissões.";
-        document.getElementById('calibStatus').style.color = "#ff8888";
+        console.warn("Câmera traseira falhou, tentando qualquer câmera:", err);
+        try {
+          let stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          video.srcObject = stream;
+          await video.play();
+          resizeCanvasToVideo();
+          startDrawLoop();
+          return true;
+        } catch(e) {
+          document.getElementById('calibStatus').innerHTML = "❌ Sem acesso à câmera. Permita e recarregue.";
+          document.getElementById('calibStatus').style.color = "#ff8888";
+          return false;
+        }
       }
     }
 
-    // ----- LOOP DE DESENHO (vídeo + régua) -----
+    function resizeCanvasToVideo() {
+      if (!video.videoWidth) return;
+      const container = canvas.parentElement;
+      const maxWidth = container.clientWidth;
+      const videoRatio = video.videoWidth / video.videoHeight;
+      let canvasWidth = maxWidth;
+      let canvasHeight = canvasWidth / videoRatio;
+      if (canvasHeight > window.innerHeight * 0.7) {
+        canvasHeight = window.innerHeight * 0.7;
+        canvasWidth = canvasHeight * videoRatio;
+      }
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+    }
+
+    window.addEventListener('resize', () => {
+      if (video.videoWidth) resizeCanvasToVideo();
+    });
+
+    // --- Loop de desenho: vídeo + régua ---
     function drawVideoAndRuler() {
       if (!video.videoWidth || !canvas.width) return;
-      // Desenha o frame do vídeo no canvas
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      // Desenha a régua por cima
       drawRulerOnCanvas();
     }
 
     function startDrawLoop() {
       if (animationId) cancelAnimationFrame(animationId);
       function frame() {
-        if (video.readyState >= 2) {
-          drawVideoAndRuler();
-        }
+        if (video.readyState >= 2) drawVideoAndRuler();
         animationId = requestAnimationFrame(frame);
       }
       frame();
     }
 
-    // ----- DESENHO DA RÉGUA (estilo igual à imagem: traços mm, cm, numeração 0, 1cm, 2, 3... e texto "tilibra") -----
+    // --- Desenho da régua estilo "Tilibra" (0, 1cm, 2, 3... e texto) ---
     function drawRulerOnCanvas() {
       if (!canvas.width || !canvas.height) return;
-      
       const rulerY = canvas.height - RULER_HEIGHT;
       const rulerWidth = canvas.width;
-      
-      // Fundo semitransparente estilo "régua plástica"
+
       ctx.save();
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = `rgba(255, 255, 245, ${RULER_BG_OPACITY})`;
+      // Fundo semi-transparente
+      ctx.fillStyle = `rgba(255, 255, 245, 0.92)`;
       ctx.fillRect(0, rulerY, rulerWidth, RULER_HEIGHT);
-      // Borda superior fina
       ctx.strokeStyle = "#888";
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(0, rulerY);
       ctx.lineTo(rulerWidth, rulerY);
       ctx.stroke();
-      
-      // Caso não calibrado: exibe mensagem de aviso
+
       if (!calibrated || pixelsPerMm <= 0) {
         ctx.fillStyle = "#b33";
         ctx.font = `bold ${FONT_SIZE + 2}px 'Segoe UI'`;
-        ctx.shadowBlur = 0;
         ctx.fillText("⚙️ Calibre a régua (clique em Calibrar)", 20, rulerY + RULER_HEIGHT/2 + 5);
         ctx.fillStyle = "#333";
         ctx.font = `12px monospace`;
@@ -309,150 +332,115 @@
         ctx.restore();
         return;
       }
-      
-      // Se calibrado: desenha marcações em mm e cm com base no fator pixelsPorMm
-      // A régua mostra a distância real (em mm) desde a borda esquerda do canvas até a direita.
+
+      // Desenha traços a cada 1mm real
       const mmPerPixel = 1 / pixelsPerMm;
-      const maxRealMM = rulerWidth * mmPerPixel;   // comprimento real representado na régua (em mm)
-      const maxRealCM = maxRealMM / 10;
-      
-      // Estilos da régua (traços pretos, texto preto)
+      const maxRealMM = rulerWidth * mmPerPixel;
+      const endMM = Math.floor(maxRealMM);
+
       ctx.fillStyle = "#111";
       ctx.font = `${FONT_SIZE}px 'Courier New', monospace`;
       ctx.strokeStyle = "#111";
       ctx.lineWidth = 1.2;
-      
-      // Loop para desenhar marcações a cada 1 mm (mas otimizado para não sobrecarregar)
-      // Para mm: intervalo de 1mm; para performance limitar visível
-      const startMM = 0;
-      const endMM = Math.floor(maxRealMM);
-      
-      // Guarda posições já desenhadas para evitar repetição
-      for (let mm = startMM; mm <= endMM; mm++) {
-        const realPosMm = mm; // distância real desde borda esquerda (mm)
-        const x = realPosMm * pixelsPerMm;
+
+      for (let mm = 0; mm <= endMM; mm++) {
+        const x = mm * pixelsPerMm;
         if (x > rulerWidth) break;
-        if (x < 0) continue;
-        
-        // Determina tipo do traço: cm, 5mm ou 1mm
         const isCm = (mm % 10 === 0);
         const is5mm = (mm % 5 === 0 && !isCm);
-        const is1mm = !isCm && !is5mm;
-        
         let tickHeight = TICK_MM_HEIGHT;
         if (is5mm) tickHeight = TICK_5MM_HEIGHT;
         if (isCm) tickHeight = TICK_CM_HEIGHT;
-        
-        // Desenha o traço vertical
+
         ctx.beginPath();
         ctx.moveTo(x, rulerY + RULER_HEIGHT - 2);
         ctx.lineTo(x, rulerY + RULER_HEIGHT - tickHeight);
         ctx.stroke();
-        
-        // Se for centímetro, escreve o número no estilo da imagem: 0, "1cm", 2, 3, 4...
+
         if (isCm) {
           const cmValue = mm / 10;
           let label = "";
           if (cmValue === 0) label = "0";
-          else if (cmValue === 1) label = "1cm";      // exatamente como na imagem: "1cm"
+          else if (cmValue === 1) label = "1cm";
           else label = cmValue.toString();
-          
           ctx.fillStyle = "#111";
           ctx.font = `500 ${FONT_SIZE}px 'Segoe UI', 'Courier New'`;
-          ctx.shadowBlur = 0;
           const textWidth = ctx.measureText(label).width;
-          // Centraliza o texto acima do traço ou um pouco deslocado
           let textX = x - textWidth/2;
           if (textX < 2) textX = 2;
           if (textX + textWidth > rulerWidth - 5) textX = rulerWidth - textWidth - 2;
           ctx.fillText(label, textX, rulerY + RULER_HEIGHT - tickHeight - 4);
-        } else if (is5mm) {
-          // Traço médio, sem texto (apenas marcação)
-          ctx.fillStyle = "#444";
-        } else {
-          // traço de mm - sem texto adicional
         }
       }
-      
-      // ------------------ DETALHES FINAIS (estilo "tilibra" e cantos) ------------------
-      // Adiciona texto "tilibra" próximo ao final direito da régua (igual à referência)
+
+      // Texto "tilibra" e detalhes
       ctx.font = `italic 11px 'Segoe UI', 'Times New Roman'`;
       ctx.fillStyle = "#2c2c2c";
       const tilibraText = "tilibra";
       const textW = ctx.measureText(tilibraText).width;
       ctx.fillText(tilibraText, rulerWidth - textW - 12, rulerY + RULER_HEIGHT - 8);
-      
-      // Pequeno ícone "mm" no canto esquerdo inferior da régua
       ctx.font = `10px monospace`;
       ctx.fillStyle = "#3a3a3a";
       ctx.fillText("mm", 6, rulerY + RULER_HEIGHT - 6);
       ctx.fillStyle = "#000000aa";
       ctx.fillText("cm", 6, rulerY + 14);
       
-      // Extra: para dar aspecto de régua física, pequenos traços nas extremidades
+      // Extremidades
       ctx.beginPath();
       ctx.moveTo(0, rulerY + RULER_HEIGHT-2);
       ctx.lineTo(3, rulerY + RULER_HEIGHT-10);
       ctx.moveTo(rulerWidth-1, rulerY + RULER_HEIGHT-2);
       ctx.lineTo(rulerWidth-4, rulerY + RULER_HEIGHT-10);
       ctx.stroke();
-      
       ctx.restore();
-      
-      // Exibe no canto superior direito a escala atual (útil)
+
+      // Informação da escala
       ctx.save();
       ctx.font = "10px monospace";
       ctx.fillStyle = "#00ffc3";
-      ctx.shadowBlur = 0;
       ctx.fillText(`${(pixelsPerMm * 10).toFixed(1)} px/cm`, canvas.width-72, 18);
       ctx.fillStyle = "#ffffffcc";
       ctx.fillText(`1cm = ${(pixelsPerMm*10).toFixed(1)}px`, canvas.width-72, 32);
       ctx.restore();
     }
-    
-    // ----- CALIBRAÇÃO (2 pontos + distância real) -----
+
+    // --- Calibração por 2 pontos ---
     function startCalibration() {
       if (calibrationMode) {
-        alert("Já está em modo calibração. Complete ou cancele.");
+        alert("Já está em modo calibração. Complete ou cancele com 'Resetar'.");
         return;
       }
       calibrationMode = true;
       calibrationPoints = [];
       document.getElementById('calibStatus').innerHTML = "🔵 Modo calibração: clique no PRIMEIRO ponto (ex: início do objeto)";
       document.getElementById('calibStatus').style.color = "#aaffdd";
-      // Exibe um cursor de mira no canvas
       canvas.style.cursor = "crosshair";
     }
-    
-    // Manipulação de clique no canvas para calibração
+
     function handleCanvasClick(e) {
       if (!calibrationMode) return;
-      
+
       const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;   // canvas físico vs CSS
+      const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
       let mouseX = (e.clientX - rect.left) * scaleX;
       let mouseY = (e.clientY - rect.top) * scaleY;
       mouseX = Math.min(Math.max(0, mouseX), canvas.width);
       mouseY = Math.min(Math.max(0, mouseY), canvas.height);
-      
       const point = { x: mouseX, y: mouseY };
+
       calibrationPoints.push(point);
-      
+      drawTemporaryPoint(point, calibrationPoints.length === 1 ? "A" : "B");
+
       if (calibrationPoints.length === 1) {
-        // primeiro ponto
-        drawTemporaryPoint(point, "ponto A");
         document.getElementById('calibStatus').innerHTML = "🟢 PRIMEIRO ponto marcado! Clique no SEGUNDO ponto (distância conhecida)";
       } else if (calibrationPoints.length === 2) {
-        drawTemporaryPoint(calibrationPoints[0], "A");
-        drawTemporaryPoint(point, "B");
-        // pede a distância real em mm
         const pixelDistance = Math.hypot(
           calibrationPoints[1].x - calibrationPoints[0].x,
           calibrationPoints[1].y - calibrationPoints[0].y
         );
         if (pixelDistance < 5) {
-          alert("Distância muito pequena entre pontos. Tente novamente com pontos mais afastados.");
+          alert("Distância muito pequena entre pontos. Tente novamente.");
           resetCalibrationSession();
           return;
         }
@@ -463,26 +451,24 @@
           return;
         }
         realDistMM = parseFloat(realDistMM);
-        // calcula pixels por mm
         const computedPxPerMm = pixelDistance / realDistMM;
         if (computedPxPerMm <= 0.01) {
-          alert("Fator de calibração inválido. Tente pontos mais distantes.");
+          alert("Fator inválido. Tente pontos mais distantes.");
           resetCalibrationSession();
           return;
         }
         pixelsPerMm = computedPxPerMm;
         calibrated = true;
+        saveCalibration();
         calibrationMode = false;
         canvas.style.cursor = "crosshair";
         document.getElementById('calibStatus').innerHTML = `✅ CALIBRADO! ${(pixelsPerMm * 10).toFixed(2)} px/cm | 1mm = ${pixelsPerMm.toFixed(2)}px`;
         document.getElementById('calibStatus').style.color = "#aaffaa";
-        // redesenha imediatamente a régua
         drawVideoAndRuler();
-        // limpa pontos temporários
         calibrationPoints = [];
       }
     }
-    
+
     function drawTemporaryPoint(point, label) {
       ctx.save();
       ctx.beginPath();
@@ -498,79 +484,49 @@
       ctx.fillText(label, point.x+6, point.y-4);
       ctx.restore();
     }
-    
+
     function resetCalibrationSession() {
       calibrationMode = false;
       calibrationPoints = [];
       canvas.style.cursor = "crosshair";
-      document.getElementById('calibStatus').innerHTML = "⚠️ Calibração cancelada ou resetada. Calibre novamente para medidas reais.";
-      document.getElementById('calibStatus').style.color = "#ffaa88";
     }
-    
+
     function resetCalibration() {
       calibrated = false;
       pixelsPerMm = 0;
       calibrationMode = false;
       calibrationPoints = [];
-      canvas.style.cursor = "crosshair";
+      localStorage.removeItem('camed_calibration');
       document.getElementById('calibStatus').innerHTML = "⚙️ Calibração removida. Use objeto conhecido para calibrar.";
       document.getElementById('calibStatus').style.color = "#ffcc88";
-      drawVideoAndRuler(); // atualiza a régua (mostra aviso)
+      drawVideoAndRuler();
     }
-    
-    // ----- CAPTURA DE IMAGEM (botão centralizado e mais alto) -----
+
+    // --- Captura de imagem (com régua) ---
     function captureImage() {
-      if (!canvas) return;
-      try {
-        // Garante que a régua e o vídeo estejam desenhados no momento
-        drawVideoAndRuler(); // força redesenho antes do snapshot
-        const link = document.createElement('a');
-        const timestamp = new Date().toISOString().slice(0,19).replace(/:/g, '-');
-        link.download = `camed_medicao_${timestamp}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-      } catch(e) {
-        alert("Erro ao capturar imagem: "+e.message);
-      }
+      drawVideoAndRuler(); // força redesenho
+      const link = document.createElement('a');
+      const timestamp = new Date().toISOString().slice(0,19).replace(/:/g, '-');
+      link.download = `camed_${timestamp}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
     }
-    
-    // ----- EVENTOS -----
+
+    // --- Eventos e inicialização ---
     function setupEvents() {
-      const calibrateBtn = document.getElementById('calibrateBtn');
-      const resetBtn = document.getElementById('resetCalibBtn');
-      const captureBtn = document.getElementById('captureBtn');
-      
-      calibrateBtn.addEventListener('click', () => {
-        if (calibrationMode) {
-          alert("Já existe calibração em andamento. Clique em resetar ou complete.");
-          return;
-        }
-        startCalibration();
-      });
-      
-      resetBtn.addEventListener('click', () => {
-        resetCalibration();
-        if (calibrationMode) calibrationMode = false;
-        calibrationPoints = [];
-      });
-      
-      captureBtn.addEventListener('click', captureImage);
-      
+      document.getElementById('calibrateBtn').addEventListener('click', startCalibration);
+      document.getElementById('resetCalibBtn').addEventListener('click', resetCalibration);
+      document.getElementById('captureBtn').addEventListener('click', captureImage);
       canvas.addEventListener('click', handleCanvasClick);
     }
-    
-    // Inicializa tudo
+
     async function init() {
       setupEvents();
+      loadCalibration();
       await initCamera();
-      // Se a câmera falhar, exibe mensagem
-      if (!video.srcObject) {
-        document.getElementById('calibStatus').innerHTML = "❌ Sem acesso à câmera. Permita o acesso e recarregue.";
-      }
-      // Ajusta cursor padrão
       canvas.style.cursor = "crosshair";
     }
-    
+
     init();
   })();
 </script>
