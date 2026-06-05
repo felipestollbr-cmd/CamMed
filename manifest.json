@@ -1,7 +1,7 @@
 {
   "name": "CamMed - Câmera Profissional",
   "short_name": "CamMed",
-  "description": "Grade profissional, régua Tilibra, foto e vídeo com sobreposições",
+  "description": "Grade profissional, régua Tilibra, foto e vídeo com um botão",
   "start_url": ".",
   "display": "standalone",
   "theme_color": "#000000",
