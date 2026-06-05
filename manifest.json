@@ -1,12 +1,12 @@
 {
-  "name": "CamMed - Grade Profissional",
+  "name": "CamMed - Câmera Profissional",
   "short_name": "CamMed",
   "description": "Grade de fotografia (terços, foco, escala -3/+3) e régua Tilibra",
   "start_url": ".",
   "display": "standalone",
   "theme_color": "#000000",
-  "background_color": "#0a0f1e",
-  "orientation": "portrait",
+  "background_color": "#000000",
+  "orientation": "any",
   "icons": [
     {
       "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' fill='%23336699'/%3E%3Cline x1='64' y1='0' x2='64' y2='192' stroke='white' stroke-width='2'/%3E%3Cline x1='128' y1='0' x2='128' y2='192' stroke='white' stroke-width='2'/%3E%3Cline x1='0' y1='64' x2='192' y2='64' stroke='white' stroke-width='2'/%3E%3Cline x1='0' y1='128' x2='192' y2='128' stroke='white' stroke-width='2'/%3E%3Ccircle cx='96' cy='96' r='24' stroke='white' fill='none' stroke-width='2'/%3E%3Ctext x='96' y='32' font-size='14' fill='white' text-anchor='middle'%3E-3%3C/text%3E%3Ctext x='128' y='32' font-size='14' fill='white'%3E+3%3C/text%3E%3C/svg%3E",
