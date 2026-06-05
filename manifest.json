@@ -1,7 +1,7 @@
 {
   "name": "CamMed - Câmera Profissional",
   "short_name": "CamMed",
-  "description": "Grade de fotografia (terços, foco, escala -3/+3) e régua Tilibra",
+  "description": "Grade de fotografia (terços, foco, escala -3/+3), régua Tilibra, foto e vídeo",
   "start_url": ".",
   "display": "standalone",
   "theme_color": "#000000",

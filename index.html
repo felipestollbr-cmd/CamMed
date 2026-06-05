@@ -53,19 +53,19 @@
       cursor: crosshair;
     }
 
-    /* Barra inferior estilo iPhone */
+    /* Barra inferior estilo iPhone com dois botões */
     .control-bar {
       background: rgba(0, 0, 0, 0.5);
       backdrop-filter: blur(20px);
       display: flex;
-      justify-content: center;
+      justify-content: space-between;
       align-items: center;
-      padding: 16px 0 30px;
-      position: relative;
+      padding: 16px 30px 30px;
       border-top: 0.5px solid rgba(255,255,255,0.2);
+      gap: 20px;
     }
 
-    /* Botão de captura estilo iPhone (centralizado e ligeiramente acima) */
+    /* Botão de captura de foto (centralizado, maior) */
     .capture-btn {
       width: 76px;
       height: 76px;
@@ -79,7 +79,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-top: -20px;
+      flex-shrink: 0;
     }
     .capture-btn:active {
       transform: scale(0.94);
@@ -94,6 +94,39 @@
       background: #cc0044;
     }
 
+    /* Botão de vídeo / instalação */
+    .action-btn {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      border-radius: 40px;
+      padding: 12px 20px;
+      color: white;
+      font-size: 16px;
+      font-weight: 500;
+      backdrop-filter: blur(10px);
+      cursor: pointer;
+      transition: 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .action-btn:active {
+      background: rgba(255,255,255,0.4);
+      transform: scale(0.96);
+    }
+    .action-btn.recording {
+      background: #ff3b30;
+      color: white;
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.7; }
+      100% { opacity: 1; }
+    }
+    .install-btn {
+      background: #34c759;
+    }
     .info {
       position: absolute;
       bottom: 100px;
@@ -112,7 +145,6 @@
       pointer-events: none;
       z-index: 10;
     }
-
     .toast {
       position: fixed;
       bottom: 120px;
@@ -129,6 +161,10 @@
       transition: opacity 0.3s;
       white-space: nowrap;
     }
+    @media (max-width: 600px) {
+      .action-btn { padding: 8px 16px; font-size: 14px; }
+      .control-bar { padding: 12px 20px 25px; }
+    }
   </style>
 </head>
 <body>
@@ -137,16 +173,19 @@
     <canvas id="mainCanvas"></canvas>
   </div>
   <div class="control-bar">
+    <button id="videoBtn" class="action-btn">🎥 Iniciar Vídeo</button>
     <button class="capture-btn" id="captureBtn">
       <div class="inner-dot"></div>
     </button>
+    <button id="installBtn" class="action-btn install-btn" style="display: none;">📲 Instalar</button>
   </div>
-  <div class="info">📷 Grade • Régua • Toque para capturar</div>
+  <div class="info">📷 Foto • 🎥 Vídeo com grade/régua • Toque no centro para foto</div>
 </div>
 <div id="toast" class="toast">📸 Foto capturada!</div>
 
 <script>
   (function() {
+    // --- Elementos ---
     const video = document.createElement('video');
     video.setAttribute('autoplay', '');
     video.setAttribute('playsinline', '');
@@ -157,20 +196,23 @@
     const ctx = canvas.getContext('2d');
     let animationId = null;
 
-    // --- Configurações da régua (fixa, estilo Tilibra) ---
-    const PX_PER_CM = 30;        // 30px = 1cm virtual
+    // --- Configurações da régua e grade ---
+    const PX_PER_CM = 30;
     const PX_PER_MM = PX_PER_CM / 10;
     const RULER_HEIGHT = 60;
-
-    // --- Grade profissional ---
-    const GRID_OPACITY = 0.65;
-    const GRID_COLOR = `rgba(255, 255, 255, ${GRID_OPACITY})`;
+    const GRID_COLOR = `rgba(255, 255, 255, 0.65)`;
     const LINE_WIDTH = 1.2;
     const FOCUS_CIRCLE_RADIUS = 60;
-    const SCALE_Y_POS = 40;      // posição vertical da escala de exposição
+    const SCALE_Y_POS = 40;
     const SCALE_VALUES = [-3, -2, -1, 0, 1, 2, 3];
 
-    // --- Inicializar câmera (sempre traseira) ---
+    // --- Variáveis de gravação de vídeo ---
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let isRecording = false;
+    let canvasStream = null;
+
+    // --- Inicializar câmera (traseira) ---
     let currentStream = null;
 
     async function initCamera() {
@@ -206,7 +248,6 @@
       }
     }
 
-    // Ajusta o canvas para preencher o wrapper mantendo a proporção do vídeo
     function resizeCanvasAndDraw() {
       if (!video.videoWidth || !video.videoHeight) return;
       const container = canvas.parentElement;
@@ -221,23 +262,15 @@
       }
       canvas.width = canvasWidth;
       canvas.height = canvasHeight;
-      // Centralizar o canvas no wrapper (já feito pelo CSS flex)
       canvas.style.width = `${canvasWidth}px`;
       canvas.style.height = `${canvasHeight}px`;
       canvas.style.left = `${(containerWidth - canvasWidth)/2}px`;
       canvas.style.top = `${(containerHeight - canvasHeight)/2}px`;
-      // Redesenha imediatamente
       if (video.readyState >= 2) drawFrame();
     }
 
-    window.addEventListener('resize', () => {
-      resizeCanvasAndDraw();
-    });
-
-    // Detecta orientação e reajusta (iOS/Android)
-    window.addEventListener('orientationchange', () => {
-      setTimeout(resizeCanvasAndDraw, 50);
-    });
+    window.addEventListener('resize', () => resizeCanvasAndDraw());
+    window.addEventListener('orientationchange', () => setTimeout(resizeCanvasAndDraw, 50));
 
     function drawFrame() {
       if (!video.videoWidth || !canvas.width) return;
@@ -252,87 +285,39 @@
       ctx.save();
       ctx.strokeStyle = GRID_COLOR;
       ctx.lineWidth = LINE_WIDTH;
-      ctx.fillStyle = `rgba(255, 255, 255, 0.4)`;
+      const x1 = w / 3, x2 = 2 * w / 3;
+      const y1 = h / 3, y2 = 2 * h / 3;
+      ctx.beginPath(); ctx.moveTo(x1, 0); ctx.lineTo(x1, h); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x2, 0); ctx.lineTo(x2, h); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, y1); ctx.lineTo(w, y1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, y2); ctx.lineTo(w, y2); ctx.stroke();
 
-      // Regra dos terços
-      const x1 = w / 3;
-      const x2 = 2 * w / 3;
-      const y1 = h / 3;
-      const y2 = 2 * h / 3;
+      const cx = w/2, cy = h/2;
+      ctx.beginPath(); ctx.arc(cx, cy, FOCUS_CIRCLE_RADIUS, 0, 2*Math.PI); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx-8, cy); ctx.lineTo(cx+8, cy); ctx.moveTo(cx, cy-8); ctx.lineTo(cx, cy+8); ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, cy, FOCUS_CIRCLE_RADIUS*0.4, 0, 2*Math.PI); ctx.stroke();
 
-      ctx.beginPath();
-      ctx.moveTo(x1, 0);
-      ctx.lineTo(x1, h);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(x2, 0);
-      ctx.lineTo(x2, h);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(0, y1);
-      ctx.lineTo(w, y1);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(0, y2);
-      ctx.lineTo(w, y2);
-      ctx.stroke();
-
-      // Círculo central de foco
-      const centerX = w / 2;
-      const centerY = h / 2;
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, FOCUS_CIRCLE_RADIUS, 0, 2 * Math.PI);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(centerX - 8, centerY);
-      ctx.lineTo(centerX + 8, centerY);
-      ctx.moveTo(centerX, centerY - 8);
-      ctx.lineTo(centerX, centerY + 8);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, FOCUS_CIRCLE_RADIUS * 0.4, 0, 2 * Math.PI);
-      ctx.stroke();
-
-      // Escala de exposição (-3 a +3)
       const scaleWidth = 180;
-      const startX = (w / 2) - (scaleWidth / 2);
+      const startX = (w/2) - (scaleWidth/2);
       const scaleY = SCALE_Y_POS;
-      const tickSpacing = scaleWidth / (SCALE_VALUES.length - 1);
-      ctx.beginPath();
-      ctx.moveTo(startX, scaleY);
-      ctx.lineTo(startX + scaleWidth, scaleY);
-      ctx.stroke();
-      ctx.font = "12px 'Courier New', monospace";
+      const tickSpacing = scaleWidth / (SCALE_VALUES.length-1);
+      ctx.beginPath(); ctx.moveTo(startX, scaleY); ctx.lineTo(startX+scaleWidth, scaleY); ctx.stroke();
+      ctx.font = "12px 'Courier New'";
       ctx.fillStyle = GRID_COLOR;
       ctx.textAlign = "center";
-      for (let i = 0; i < SCALE_VALUES.length; i++) {
-        const xTick = startX + i * tickSpacing;
-        ctx.beginPath();
-        ctx.moveTo(xTick, scaleY - 5);
-        ctx.lineTo(xTick, scaleY + 5);
-        ctx.stroke();
+      for (let i=0; i<SCALE_VALUES.length; i++) {
+        const xTick = startX + i*tickSpacing;
+        ctx.beginPath(); ctx.moveTo(xTick, scaleY-5); ctx.lineTo(xTick, scaleY+5); ctx.stroke();
         let label = SCALE_VALUES[i];
-        if (label > 0) label = "+" + label;
-        ctx.fillText(label.toString(), xTick, scaleY - 8);
+        if (label > 0) label = "+"+label;
+        ctx.fillText(label, xTick, scaleY-8);
       }
-      ctx.beginPath();
-      ctx.moveTo(w/2, scaleY - 10);
-      ctx.lineTo(w/2 - 4, scaleY - 2);
-      ctx.lineTo(w/2 + 4, scaleY - 2);
-      ctx.fillStyle = `rgba(255, 200, 100, 0.9)`;
-      ctx.fill();
+      ctx.beginPath(); ctx.moveTo(w/2, scaleY-10); ctx.lineTo(w/2-4, scaleY-2); ctx.lineTo(w/2+4, scaleY-2); ctx.fillStyle = `rgba(255,200,100,0.9)`; ctx.fill();
 
-      // Retângulos de foco nos pontos de terço
-      const corners = [[x1, y1], [x1, y2], [x2, y1], [x2, y2]];
-      corners.forEach(([cx, cy]) => {
-        ctx.beginPath();
-        ctx.rect(cx - 12, cy - 8, 24, 16);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.rect(cx - 8, cy - 12, 16, 24);
-        ctx.stroke();
+      [[x1,y1],[x1,y2],[x2,y1],[x2,y2]].forEach(([cx,cy]) => {
+        ctx.beginPath(); ctx.rect(cx-12, cy-8, 24, 16); ctx.stroke();
+        ctx.beginPath(); ctx.rect(cx-8, cy-12, 16, 24); ctx.stroke();
       });
-
       ctx.restore();
     }
 
@@ -342,18 +327,12 @@
       ctx.fillStyle = "rgba(255, 248, 225, 0.85)";
       ctx.fillRect(0, rulerY, w, RULER_HEIGHT);
       ctx.strokeStyle = "#aaa";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(0, rulerY);
-      ctx.lineTo(w, rulerY);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, rulerY); ctx.lineTo(w, rulerY); ctx.stroke();
 
       const totalMM = Math.floor(w / PX_PER_MM);
       ctx.fillStyle = "#222";
-      ctx.font = "11px 'Courier New', monospace";
+      ctx.font = "11px 'Courier New'";
       ctx.strokeStyle = "#222";
-      ctx.lineWidth = 1;
-
       for (let mm = 0; mm <= totalMM; mm++) {
         const x = mm * PX_PER_MM;
         if (x > w) break;
@@ -362,45 +341,30 @@
         let tickHeight = 8;
         if (is5mm) tickHeight = 14;
         if (isCm) tickHeight = 22;
-
-        ctx.beginPath();
-        ctx.moveTo(x, rulerY + RULER_HEIGHT - 2);
-        ctx.lineTo(x, rulerY + RULER_HEIGHT - tickHeight);
-        ctx.stroke();
-
+        ctx.beginPath(); ctx.moveTo(x, rulerY+RULER_HEIGHT-2); ctx.lineTo(x, rulerY+RULER_HEIGHT-tickHeight); ctx.stroke();
         if (isCm) {
-          const cmValue = mm / 10;
-          let label = "";
-          if (cmValue === 0) label = "0";
-          else if (cmValue === 1) label = "1cm";
-          else label = cmValue.toString();
+          let label = mm/10 === 0 ? "0" : (mm/10 === 1 ? "1cm" : (mm/10).toString());
           ctx.fillStyle = "#111";
-          ctx.font = "bold 11px 'Segoe UI', monospace";
-          const textW = ctx.measureText(label).width;
-          let textX = x - textW/2;
-          if (textX < 2) textX = 2;
-          if (textX + textW > w - 5) textX = w - textW - 2;
-          ctx.fillText(label, textX, rulerY + RULER_HEIGHT - tickHeight - 3);
+          ctx.font = "bold 11px 'Segoe UI'";
+          const tw = ctx.measureText(label).width;
+          let tx = x - tw/2;
+          if (tx < 2) tx = 2;
+          if (tx+tw > w-5) tx = w-tw-2;
+          ctx.fillText(label, tx, rulerY+RULER_HEIGHT-tickHeight-3);
         }
       }
-
       ctx.font = "italic 9px 'Segoe UI'";
       ctx.fillStyle = "#3c3c3c";
       const tilibra = "tilibra";
       const tw = ctx.measureText(tilibra).width;
-      ctx.fillText(tilibra, w - tw - 12, rulerY + RULER_HEIGHT - 8);
+      ctx.fillText(tilibra, w - tw - 12, rulerY+RULER_HEIGHT-8);
       ctx.font = "8px monospace";
       ctx.fillStyle = "#5a5a5a";
-      ctx.fillText("mm", 6, rulerY + RULER_HEIGHT - 6);
+      ctx.fillText("mm", 6, rulerY+RULER_HEIGHT-6);
       ctx.fillStyle = "#222";
-      ctx.fillText("cm", 6, rulerY + 14);
-      
-      ctx.beginPath();
-      ctx.moveTo(0, rulerY + RULER_HEIGHT-2);
-      ctx.lineTo(3, rulerY + RULER_HEIGHT-10);
-      ctx.moveTo(w-1, rulerY + RULER_HEIGHT-2);
-      ctx.lineTo(w-4, rulerY + RULER_HEIGHT-10);
-      ctx.stroke();
+      ctx.fillText("cm", 6, rulerY+14);
+      ctx.beginPath(); ctx.moveTo(0, rulerY+RULER_HEIGHT-2); ctx.lineTo(3, rulerY+RULER_HEIGHT-10);
+      ctx.moveTo(w-1, rulerY+RULER_HEIGHT-2); ctx.lineTo(w-4, rulerY+RULER_HEIGHT-10); ctx.stroke();
     }
 
     function startDrawLoop() {
@@ -412,34 +376,18 @@
       frame();
     }
 
-    // --- Captura e compartilhamento (salva no rolo da câmera) ---
-    async function captureAndSave() {
+    // --- Captura de foto (igual antes) ---
+    async function capturePhoto() {
       drawFrame();
       canvas.toBlob(async (blob) => {
-        if (!blob) {
-          showToast("Erro ao gerar imagem");
-          return;
-        }
+        if (!blob) { showToast("Erro ao gerar imagem"); return; }
         const file = new File([blob], `camed_${Date.now()}.png`, { type: 'image/png' });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
-            await navigator.share({
-              title: 'CamMed - Medição',
-              text: 'Imagem com grade e régua',
-              files: [file]
-            });
-            showToast("✅ Foto salva no rolo (escolha \"Salvar imagem\")");
-          } catch (err) {
-            if (err.name !== 'AbortError') {
-              console.warn("Erro no share:", err);
-              downloadFallback(blob);
-            } else {
-              showToast("Compartilhamento cancelado");
-            }
-          }
-        } else {
-          downloadFallback(blob);
-        }
+            await navigator.share({ title: 'CamMed', files: [file] });
+            showToast("✅ Foto salva no rolo (escolha Salvar)");
+          } catch(e) { if(e.name !== 'AbortError') downloadFallback(blob); }
+        } else { downloadFallback(blob); }
       }, 'image/png');
     }
 
@@ -448,24 +396,89 @@
       const url = URL.createObjectURL(blob);
       link.href = url;
       link.download = `camed_${Date.now()}.png`;
-      document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      showToast("📁 Imagem baixada (verifique Downloads)");
+      showToast("📁 Imagem baixada");
     }
+
+    // --- Gravação de vídeo (captura do canvas) ---
+    async function startRecording() {
+      if (isRecording) return;
+      // Cria um stream a partir do canvas (captura o canvas a cada frame)
+      const fps = 30;
+      canvasStream = canvas.captureStream(fps);
+      // Opcional: adicionar áudio do microfone? (se precisar, descomentar)
+      // try { const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true }); audioStream.getTracks().forEach(track => canvasStream.addTrack(track)); } catch(e) {}
+      mediaRecorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm' });
+      recordedChunks = [];
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) recordedChunks.push(event.data);
+      };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `camed_video_${Date.now()}.webm`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast("🎥 Vídeo salvo (verifique Downloads)");
+        recordedChunks = [];
+        if (canvasStream) canvasStream.getTracks().forEach(t => t.stop());
+        canvasStream = null;
+        document.getElementById('videoBtn').classList.remove('recording');
+        document.getElementById('videoBtn').innerHTML = '🎥 Iniciar Vídeo';
+        isRecording = false;
+      };
+      mediaRecorder.start(1000); // captura a cada segundo
+      isRecording = true;
+      document.getElementById('videoBtn').classList.add('recording');
+      document.getElementById('videoBtn').innerHTML = '⏹️ Parar Gravação';
+      showToast("🔴 Gravando vídeo com grade e régua...");
+    }
+
+    function stopRecording() {
+      if (mediaRecorder && isRecording) {
+        mediaRecorder.stop();
+      }
+    }
+
+    function toggleRecording() {
+      if (isRecording) stopRecording();
+      else startRecording();
+    }
+
+    // --- Instalação do PWA ---
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const installBtn = document.getElementById('installBtn');
+      installBtn.style.display = 'flex';
+      installBtn.onclick = async () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          if (outcome === 'accepted') {
+            installBtn.style.display = 'none';
+          }
+          deferredPrompt = null;
+        }
+      };
+    });
+
+    // --- Eventos UI ---
+    document.getElementById('captureBtn').addEventListener('click', capturePhoto);
+    document.getElementById('videoBtn').addEventListener('click', toggleRecording);
 
     function showToast(msg) {
       const toast = document.getElementById('toast');
       toast.textContent = msg;
       toast.style.opacity = '1';
-      setTimeout(() => {
-        toast.style.opacity = '0';
-      }, 2000);
+      setTimeout(() => toast.style.opacity = '0', 2000);
     }
 
-    // Eventos
-    document.getElementById('captureBtn').addEventListener('click', captureAndSave);
+    // Inicializar
     initCamera();
   })();
 </script>
