@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CamRégua">
+<link rel="manifest" href="manifest.json">
+<title>CamRégua</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600&display=swap');
+
+  :root {
+    --grid-color: rgba(0, 255, 180, 0.45);
+    --ruler-bg: rgba(10, 10, 10, 0.88);
+    --ruler-tick: #00ffb4;
+    --ruler-text: #00ffb4;
+    --accent: #00ffb4;
+    --btn-bg: rgba(0,0,0,0.6);
+    --font-mono: 'Share Tech Mono', monospace;
+    --font-ui: 'Exo 2', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: #000;
+    overflow: hidden;
+    font-family: var(--font-ui);
+    touch-action: none;
+    user-select: none;
+  }
+
+  #app {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* ── CAMERA ── */
+  #video {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    background: #000;
+  }
+
+  /* ── OVERLAY CANVAS (grade + régua sobre o vídeo) ── */
+  #overlayCanvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+
+  /* ── CANVAS OCULTO para render da foto final ── */
+  #captureCanvas { display: none; }
+
+  /* ── BARRA SUPERIOR ── */
+  #topBar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+    z-index: 10;
+  }
+
+  .app-title {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .top-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .icon-btn {
+    background: var(--btn-bg);
+    border: 1px solid rgba(0,255,180,0.3);
+    color: var(--accent);
+    border-radius: 50%;
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    transition: background 0.2s, border-color 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .icon-btn:active { background: rgba(0,255,180,0.2); }
+  .icon-btn.active { border-color: var(--accent); background: rgba(0,255,180,0.15); }
+
+  /* ── BARRA INFERIOR ── */
+  #bottomBar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding-bottom: env(safe-area-inset-bottom, 12px);
+    z-index: 10;
+    background: linear-gradient(to top, rgba(0,0,0,0.75), transparent);
+  }
+
+  /* Régua visual */
+  #ruler {
+    width: 100%;
+    height: 52px;
+    position: relative;
+    overflow: hidden;
+    background: var(--ruler-bg);
+    border-top: 1px solid rgba(0,255,180,0.25);
+  }
+
+  #rulerCanvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+  }
+
+  /* Controles de captura */
+  #controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    padding: 16px 0 8px;
+  }
+
+  /* Botão de captura */
+  #captureBtn {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: #fff;
+    border: 4px solid var(--accent);
+    cursor: pointer;
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.12s, box-shadow 0.12s;
+    box-shadow: 0 0 0 4px rgba(0,255,180,0.2), 0 0 24px rgba(0,255,180,0.3);
+    -webkit-tap-highlight-color: transparent;
+  }
+  #captureBtn::after {
+    content: '';
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: #fff;
+    position: absolute;
+    transition: background 0.1s;
+  }
+  #captureBtn:active { transform: scale(0.92); }
+  #captureBtn:active::after { background: #ddd; }
+
+  /* Flash */
+  #flash {
+    position: fixed;
+    inset: 0;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 99;
+    transition: opacity 0.05s;
+  }
+  #flash.on { opacity: 0.85; }
+
+  /* Preview da última foto */
+  #previewThumb {
+    width: 52px; height: 52px;
+    border-radius: 8px;
+    border: 2px solid var(--accent);
+    object-fit: cover;
+    cursor: pointer;
+    display: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Toggle de câmera */
+  .cam-icon { font-size: 20px; }
+
+  /* Indicador de grid */
+  #gridToggle span { font-size: 16px; }
+
+  /* ── LIGHTBOX ── */
+  #lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+  }
+  #lightbox.open { display: flex; }
+  #lightbox img {
+    max-width: 92vw;
+    max-height: 72vh;
+    border-radius: 8px;
+    border: 1px solid rgba(0,255,180,0.3);
+  }
+  .lb-actions { display: flex; gap: 16px; }
+  .lb-btn {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 1px;
+    padding: 10px 22px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    transition: background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .lb-btn:active { background: rgba(0,255,180,0.15); }
+  .lb-btn.primary { background: var(--accent); color: #000; font-weight: 600; }
+  .lb-btn.primary:active { opacity: 0.85; }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    bottom: 120px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(0,255,180,0.15);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 1px;
+    padding: 8px 18px;
+    border-radius: 20px;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+    z-index: 300;
+    white-space: nowrap;
+  }
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ── SPLASH / LOADING ── */
+  #splash {
+    position: fixed; inset: 0;
+    background: #000;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 18px;
+    z-index: 500;
+    transition: opacity 0.5s;
+  }
+  #splash.hidden { opacity: 0; pointer-events: none; }
+  .splash-title {
+    font-family: var(--font-mono);
+    color: var(--accent);
+    font-size: 28px;
+    letter-spacing: 6px;
+  }
+  .splash-sub {
+    font-family: var(--font-ui);
+    color: rgba(255,255,255,0.4);
+    font-size: 13px;
+    letter-spacing: 2px;
+  }
+  .splash-loader {
+    width: 48px; height: 2px;
+    background: rgba(0,255,180,0.2);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+  }
+  .splash-loader::after {
+    content: '';
+    position: absolute;
+    left: -50%; width: 50%; height: 100%;
+    background: var(--accent);
+    animation: load 1s infinite ease-in-out;
+  }
+  @keyframes load {
+    0%   { left: -50%; }
+    100% { left: 150%; }
+  }
+
+  /* Erro de câmera */
+  #errorMsg {
+    display: none;
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+    color: rgba(255,255,255,0.6);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 1px;
+    text-align: center;
+    padding: 24px;
+    z-index: 20;
+  }
+  #errorMsg.show { display: flex; }
+  #errorMsg span { font-size: 40px; }
+</style>
+</head>
+<body>
+
+<div id="splash">
+  <div class="splash-title">CAMRÉGUA</div>
+  <div class="splash-sub">câmera com grade + régua</div>
+  <div class="splash-loader"></div>
+</div>
+
+<div id="flash"></div>
+
+<div id="app">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="overlayCanvas"></canvas>
+  <canvas id="captureCanvas"></canvas>
+
+  <div id="errorMsg">
+    <span>📷</span>
+    <p>Não foi possível acessar a câmera.<br>Verifique as permissões do navegador.</p>
+  </div>
+
+  <!-- Barra superior -->
+  <div id="topBar">
+    <div class="app-title">CAMRÉGUA</div>
+    <div class="top-controls">
+      <div class="icon-btn active" id="gridToggle" title="Mostrar/ocultar grade">
+        <span>⊞</span>
+      </div>
+      <div class="icon-btn" id="flipBtn" title="Girar câmera">
+        <span class="cam-icon">🔄</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barra inferior: régua + controles -->
+  <div id="bottomBar">
+    <div id="ruler">
+      <canvas id="rulerCanvas"></canvas>
+    </div>
+    <div id="controls">
+      <img id="previewThumb" alt="última foto" />
+      <button id="captureBtn" title="Tirar foto"></button>
+      <div style="width:52px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox para visualizar foto -->
+<div id="lightbox">
+  <img id="lbImg" src="" alt="foto capturada" />
+  <div class="lb-actions">
+    <button class="lb-btn" id="lbClose">FECHAR</button>
+    <button class="lb-btn primary" id="lbSave">⬇ SALVAR</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════
+//  ESTADO
+// ════════════════════════════════════════════
+const state = {
+  stream: null,
+  facingMode: 'environment',  // traseira por padrão
+  showGrid: true,
+  dpr: window.devicePixelRatio || 1,
+  lastPhotoDataUrl: null,
+  rulerPxPerCm: 37.8,  // aprox. 96dpi / 2.54 — ajustado por DPR
+};
+
+// ════════════════════════════════════════════
+//  ELEMENTOS
+// ════════════════════════════════════════════
+const video        = document.getElementById('video');
+const overlayCanvas= document.getElementById('overlayCanvas');
+const captureCanvas= document.getElementById('captureCanvas');
+const rulerCanvas  = document.getElementById('rulerCanvas');
+const overlayCtx   = overlayCanvas.getContext('2d');
+const captureCtx   = captureCanvas.getContext('2d');
+const rulerCtx     = rulerCanvas.getContext('2d');
+const captureBtn   = document.getElementById('captureBtn');
+const flipBtn      = document.getElementById('flipBtn');
+const gridToggle   = document.getElementById('gridToggle');
+const previewThumb = document.getElementById('previewThumb');
+const flash        = document.getElementById('flash');
+const lightbox     = document.getElementById('lightbox');
+const lbImg        = document.getElementById('lbImg');
+const lbClose      = document.getElementById('lbClose');
+const lbSave       = document.getElementById('lbSave');
+const toast        = document.getElementById('toast');
+const splash       = document.getElementById('splash');
+const errorMsg     = document.getElementById('errorMsg');
+const ruler        = document.getElementById('ruler');
+
+// ════════════════════════════════════════════
+//  CÂMERA
+// ════════════════════════════════════════════
+async function startCamera() {
+  if (state.stream) {
+    state.stream.getTracks().forEach(t => t.stop());
+  }
+  try {
+    const constraints = {
+      video: {
+        facingMode: state.facingMode,
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+      },
+      audio: false,
+    };
+    state.stream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = state.stream;
+    await video.play();
+    hideSplash();
+  } catch (e) {
+    console.error(e);
+    hideSplash();
+    errorMsg.classList.add('show');
+  }
+}
+
+function hideSplash() {
+  splash.classList.add('hidden');
+  setTimeout(() => splash.style.display = 'none', 600);
+}
+
+// ════════════════════════════════════════════
+//  RESIZE / LAYOUT
+// ════════════════════════════════════════════
+function resize() {
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  const dpr = state.dpr;
+
+  // Overlay canvas (CSS size = janela)
+  overlayCanvas.style.width  = W + 'px';
+  overlayCanvas.style.height = H + 'px';
+  overlayCanvas.width  = W * dpr;
+  overlayCanvas.height = H * dpr;
+
+  // Ruler canvas
+  const rh = ruler.offsetHeight;
+  rulerCanvas.style.width  = W + 'px';
+  rulerCanvas.style.height = rh + 'px';
+  rulerCanvas.width  = W * dpr;
+  rulerCanvas.height = rh * dpr;
+
+  // Pixels por cm: usa dpr para ser mais preciso
+  // tela de ~160 DPI: 1cm ≈ 37.8 CSS px
+  state.rulerPxPerCm = (window.screen.width / (window.screen.width / 96)) * (96 / 2.54) * dpr;
+  // fallback simples
+  if (!isFinite(state.rulerPxPerCm) || state.rulerPxPerCm < 20) {
+    state.rulerPxPerCm = 37.8 * dpr;
+  }
+
+  drawOverlay();
+  drawRuler();
+}
+
+// ════════════════════════════════════════════
+//  OVERLAY: GRADE
+// ════════════════════════════════════════════
+function drawOverlay() {
+  const ctx = overlayCtx;
+  const W = overlayCanvas.width;
+  const H = overlayCanvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  if (!state.showGrid) return;
+
+  ctx.save();
+
+  // Grade regra dos terços
+  ctx.strokeStyle = 'rgba(0,255,180,0.45)';
+  ctx.lineWidth = 1 * state.dpr;
+
+  // Linhas verticais
+  for (let i = 1; i <= 2; i++) {
+    const x = (W / 3) * i;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, H);
+    ctx.stroke();
+  }
+
+  // Linhas horizontais
+  for (let i = 1; i <= 2; i++) {
+    const y = (H / 3) * i;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(W, y);
+    ctx.stroke();
+  }
+
+  // Pontos de intersecção
+  ctx.fillStyle = 'rgba(0,255,180,0.8)';
+  const pts = [
+    [W/3, H/3], [2*W/3, H/3],
+    [W/3, 2*H/3], [2*W/3, 2*H/3],
+  ];
+  for (const [px, py] of pts) {
+    ctx.beginPath();
+    ctx.arc(px, py, 4 * state.dpr, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Marca central
+  const cx = W / 2;
+  const cy = H / 2;
+  const cs = 16 * state.dpr;
+  ctx.strokeStyle = 'rgba(0,255,180,0.7)';
+  ctx.lineWidth = 1.5 * state.dpr;
+  ctx.beginPath();
+  ctx.moveTo(cx - cs, cy); ctx.lineTo(cx + cs, cy);
+  ctx.moveTo(cx, cy - cs); ctx.lineTo(cx, cy + cs);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+// ════════════════════════════════════════════
+//  RÉGUA
+// ════════════════════════════════════════════
+function drawRuler() {
+  const ctx = rulerCtx;
+  const W = rulerCanvas.width;
+  const H = rulerCanvas.height;
+  const dpr = state.dpr;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Fundo já é via CSS; só desenhamos as marcações
+  const pxPerCm = state.rulerPxPerCm;
+  const pxPerMm = pxPerCm / 10;
+
+  ctx.save();
+  ctx.strokeStyle = '#00ffb4';
+  ctx.fillStyle   = '#00ffb4';
+  ctx.font = `${10 * dpr}px 'Share Tech Mono', monospace`;
+  ctx.textAlign = 'center';
+  ctx.lineWidth = 1 * dpr;
+
+  // Linha base
+  ctx.beginPath();
+  ctx.moveTo(0, H * 0.08);
+  ctx.lineTo(W, H * 0.08);
+  ctx.stroke();
+
+  // Quantos mm cabem na tela
+  const totalMm = Math.ceil(W / pxPerMm) + 10;
+
+  for (let mm = 0; mm <= totalMm; mm++) {
+    const x = mm * pxPerMm;
+    if (x > W) break;
+
+    let tickH;
+    if (mm % 10 === 0) {
+      // cm
+      tickH = H * 0.75;
+      const cmLabel = mm / 10;
+      ctx.fillText(cmLabel + 'cm', x, H * 0.95);
+    } else if (mm % 5 === 0) {
+      // meio cm
+      tickH = H * 0.50;
+    } else {
+      // mm
+      tickH = H * 0.30;
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(x, H * 0.08);
+    ctx.lineTo(x, H * 0.08 + tickH);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+// ════════════════════════════════════════════
+//  CAPTURA DA FOTO (câmera + grade + régua)
+// ════════════════════════════════════════════
+async function capturePhoto() {
+  // Tamanho real do vídeo
+  const vw = video.videoWidth  || window.innerWidth;
+  const vh = video.videoHeight || window.innerHeight;
+
+  // Altura da régua em pixels de vídeo (proporção)
+  const screenH = window.innerHeight;
+  const rulerH  = ruler.offsetHeight;
+  const ratioH  = vh / screenH;
+  const rulerHvideo = rulerH * ratioH;
+
+  captureCanvas.width  = vw;
+  captureCanvas.height = vh;
+
+  const ctx = captureCtx;
+
+  // 1) Desenha o frame da câmera
+  ctx.drawImage(video, 0, 0, vw, vh);
+
+  // 2) Desenha a grade (se ativa)
+  if (state.showGrid) {
+    const ratioW = vw / window.innerWidth;
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0,255,180,0.5)';
+    ctx.lineWidth = Math.max(1, 1.5 * ratioW);
+
+    // Terços verticais
+    for (let i = 1; i <= 2; i++) {
+      ctx.beginPath();
+      ctx.moveTo((vw / 3) * i, 0);
+      ctx.lineTo((vw / 3) * i, vh);
+      ctx.stroke();
+    }
+    // Terços horizontais
+    for (let i = 1; i <= 2; i++) {
+      ctx.beginPath();
+      ctx.moveTo(0, (vh / 3) * i);
+      ctx.lineTo(vw, (vh / 3) * i);
+      ctx.stroke();
+    }
+
+    // Pontos de intersecção
+    ctx.fillStyle = 'rgba(0,255,180,0.85)';
+    for (const [px, py] of [
+      [vw/3,vh/3],[2*vw/3,vh/3],[vw/3,2*vh/3],[2*vw/3,2*vh/3]
+    ]) {
+      ctx.beginPath();
+      ctx.arc(px, py, 5 * ratioW, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Cruz central
+    const cs = 20 * ratioW;
+    ctx.strokeStyle = 'rgba(0,255,180,0.75)';
+    ctx.beginPath();
+    ctx.moveTo(vw/2 - cs, vh/2); ctx.lineTo(vw/2 + cs, vh/2);
+    ctx.moveTo(vw/2, vh/2 - cs); ctx.lineTo(vw/2, vh/2 + cs);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  // 3) Desenha a régua na parte inferior da foto
+  drawRulerOnCanvas(ctx, vw, vh, rulerHvideo);
+
+  // 4) Exporta
+  const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.95);
+  return dataUrl;
+}
+
+function drawRulerOnCanvas(ctx, vw, vh, rulerH) {
+  const ratioW = vw / window.innerWidth;
+
+  // Fundo da régua
+  ctx.save();
+  ctx.fillStyle = 'rgba(10,10,10,0.88)';
+  ctx.fillRect(0, vh - rulerH, vw, rulerH);
+
+  // Linha topo da régua
+  ctx.strokeStyle = 'rgba(0,255,180,0.3)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, vh - rulerH);
+  ctx.lineTo(vw, vh - rulerH);
+  ctx.stroke();
+
+  // Marcações
+  const pxPerCm = state.rulerPxPerCm * ratioW;
+  const pxPerMm = pxPerCm / 10;
+  const totalMm = Math.ceil(vw / pxPerMm) + 10;
+
+  const baseY = vh - rulerH + rulerH * 0.08;
+
+  ctx.strokeStyle = '#00ffb4';
+  ctx.fillStyle   = '#00ffb4';
+  ctx.lineWidth   = Math.max(1, ratioW);
+  ctx.font        = `${Math.round(10 * ratioW)}px monospace`;
+  ctx.textAlign   = 'center';
+
+  // Linha base
+  ctx.beginPath();
+  ctx.moveTo(0, baseY);
+  ctx.lineTo(vw, baseY);
+  ctx.stroke();
+
+  for (let mm = 0; mm <= totalMm; mm++) {
+    const x = mm * pxPerMm;
+    if (x > vw) break;
+
+    let tickH;
+    if (mm % 10 === 0) {
+      tickH = rulerH * 0.75;
+      ctx.fillText((mm / 10) + 'cm', x, vh - 2);
+    } else if (mm % 5 === 0) {
+      tickH = rulerH * 0.50;
+    } else {
+      tickH = rulerH * 0.30;
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(x, baseY);
+    ctx.lineTo(x, baseY + tickH);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+// ════════════════════════════════════════════
+//  EVENTOS
+// ════════════════════════════════════════════
+captureBtn.addEventListener('click', async () => {
+  // Flash
+  flash.classList.add('on');
+  setTimeout(() => flash.classList.remove('on'), 120);
+
+  const dataUrl = await capturePhoto();
+  state.lastPhotoDataUrl = dataUrl;
+
+  // Thumb
+  previewThumb.src = dataUrl;
+  previewThumb.style.display = 'block';
+
+  showToast('✓ FOTO CAPTURADA');
+});
+
+previewThumb.addEventListener('click', () => openLightbox());
+
+flipBtn.addEventListener('click', () => {
+  state.facingMode = state.facingMode === 'environment' ? 'user' : 'environment';
+  startCamera();
+});
+
+gridToggle.addEventListener('click', () => {
+  state.showGrid = !state.showGrid;
+  gridToggle.classList.toggle('active', state.showGrid);
+  drawOverlay();
+});
+
+lbClose.addEventListener('click', () => lightbox.classList.remove('open'));
+lbSave.addEventListener('click', savePhoto);
+
+// ════════════════════════════════════════════
+//  LIGHTBOX
+// ════════════════════════════════════════════
+function openLightbox() {
+  if (!state.lastPhotoDataUrl) return;
+  lbImg.src = state.lastPhotoDataUrl;
+  lightbox.classList.add('open');
+}
+
+// ════════════════════════════════════════════
+//  SALVAR FOTO
+// ════════════════════════════════════════════
+async function savePhoto() {
+  if (!state.lastPhotoDataUrl) return;
+
+  const filename = `camregua_${Date.now()}.jpg`;
+
+  // Método 1: Web Share API (mobile)
+  if (navigator.share && navigator.canShare) {
+    try {
+      const blob = await (await fetch(state.lastPhotoDataUrl)).blob();
+      const file = new File([blob], filename, { type: 'image/jpeg' });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'CamRégua' });
+        showToast('✓ COMPARTILHADO');
+        return;
+      }
+    } catch (e) { /* fallback */ }
+  }
+
+  // Método 2: download link
+  const a = document.createElement('a');
+  a.href = state.lastPhotoDataUrl;
+  a.download = filename;
+  a.click();
+  showToast('✓ DOWNLOAD INICIADO');
+}
+
+// ════════════════════════════════════════════
+//  TOAST
+// ════════════════════════════════════════════
+let toastTimer;
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+}
+
+// ════════════════════════════════════════════
+//  ANIMAÇÃO DO OVERLAY (loop)
+// ════════════════════════════════════════════
+function loop() {
+  drawOverlay();
+  requestAnimationFrame(loop);
+}
+
+// ════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 300));
+
+resize();
+startCamera();
+loop();
+  // Service Worker (PWA offline)
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(console.warn);
+    });
+  }
+</script>
+</body>
+</html>
