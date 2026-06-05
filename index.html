@@ -1,591 +1,578 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#0a0a0a">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="CamRégua">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<title>CamRégua</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;background:#000;overflow:hidden;touch-action:manipulation;user-select:none;-webkit-user-select:none}
-#app{position:fixed;inset:0;background:#000}
-#video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-#gridCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-#captureCanvas{display:none}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>CamMed - Régua com Câmera</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none; /* Evita seleção indesejada durante calibração */
+    }
 
-/* TOPO */
-#topBar{
-  position:absolute;top:0;left:0;right:0;
-  height:56px;display:flex;align-items:center;justify-content:space-between;
-  padding:0 16px;padding-top:env(safe-area-inset-top,0px);
-  background:linear-gradient(to bottom,rgba(0,0,0,.72),transparent);
-  z-index:20;
-}
-.app-title{font-family:'Share Tech Mono',monospace;font-size:14px;color:#00ffb4;letter-spacing:3px}
-.top-controls{display:flex;gap:10px}
-.icon-btn{
-  background:rgba(0,0,0,.6);border:1.5px solid rgba(0,255,180,.35);color:#00ffb4;
-  border-radius:50%;width:42px;height:42px;display:flex;align-items:center;justify-content:center;
-  cursor:pointer;font-size:18px;-webkit-tap-highlight-color:transparent;transition:background .15s
-}
-.icon-btn.active{border-color:#00ffb4;background:rgba(0,255,180,.18)}
-.icon-btn:active{background:rgba(0,255,180,.28)}
+    body {
+      background: #0a0f1e;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: 'Segoe UI', 'Roboto', system-ui, -apple-system, sans-serif;
+      padding: 16px;
+    }
 
-/* INFERIOR: régua + botão */
-#bottomBar{
-  position:absolute;bottom:0;left:0;right:0;
-  z-index:20;
-  padding-bottom:env(safe-area-inset-bottom,0px);
-}
+    .app-container {
+      background: #000;
+      border-radius: 32px;
+      box-shadow: 0 20px 35px rgba(0,0,0,0.5);
+      overflow: hidden;
+      max-width: 1000px;
+      width: 100%;
+      position: relative;
+    }
 
-/* Régua */
-#ruler{
-  width:100%;height:64px;
-  background:rgba(6,6,6,.94);
-  border-top:1.5px solid rgba(0,255,180,.28);
-  position:relative;overflow:hidden;
-}
-#rulerCanvas{position:absolute;top:0;left:0;width:100%;height:100%}
+    .canvas-wrapper {
+      position: relative;
+      line-height: 0;
+      background: #1e1e2f;
+    }
 
-/* Faixa do botão — centraliza o botão */
-#controls{
-  display:flex;align-items:center;justify-content:center;
-  padding:12px 0 10px;
-  background:rgba(0,0,0,.82);
-  position:relative;
-}
+    canvas {
+      width: 100%;
+      height: auto;
+      display: block;
+      cursor: crosshair;
+    }
 
-/* Thumb — posicionado à esquerda do centro */
-#previewThumb{
-  position:absolute;left:40px;
-  width:52px;height:52px;border-radius:8px;
-  border:2px solid #00ffb4;object-fit:cover;cursor:pointer;
-  -webkit-tap-highlight-color:transparent;visibility:hidden;
-}
+    /* Área dos controles: botão de captura centralizado e mais elevado */
+    .control-bar {
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(10px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 16px 20px 24px 20px;
+      position: relative;
+    }
 
-/* Botão de captura — centralizado */
-#captureBtn{
-  width:76px;height:76px;border-radius:50%;
-  background:#fff;border:4px solid #00ffb4;
-  outline:none;cursor:pointer;
-  box-shadow:0 0 0 5px rgba(0,255,180,.2),0 0 20px rgba(0,255,180,.25);
-  -webkit-tap-highlight-color:transparent;
-  flex-shrink:0;transition:transform .1s;
-}
-#captureBtn:active{transform:scale(.9)}
+    /* Botão de captura estilizado, centralizado e um pouco mais para cima */
+    .capture-btn {
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      background: white;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.2), 0 0 0 8px rgba(0, 255, 180, 0.3);
+      transition: transform 0.1s ease, box-shadow 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: -20px;  /* Move o botão um pouco para cima */
+    }
 
-/* Flash */
-#flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:99;transition:opacity .06s}
-#flash.on{opacity:.88}
+    .capture-btn:active {
+      transform: scale(0.94);
+      box-shadow: 0 0 0 3px rgba(255,255,255,0.3), 0 0 0 6px rgba(0,255,180,0.5);
+    }
 
-/* Lightbox */
-#lightbox{position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:200;display:none;align-items:center;justify-content:center;flex-direction:column;gap:18px}
-#lightbox.open{display:flex}
-#lbImg{max-width:92vw;max-height:68vh;border-radius:8px;border:1px solid rgba(0,255,180,.3);object-fit:contain}
-.lb-actions{display:flex;gap:14px}
-.lb-btn{font-family:'Share Tech Mono',monospace;font-size:12px;letter-spacing:1.5px;padding:11px 24px;border-radius:6px;cursor:pointer;border:1.5px solid #00ffb4;background:transparent;color:#00ffb4;-webkit-tap-highlight-color:transparent}
-.lb-btn.primary{background:#00ffb4;color:#000;font-weight:700}
+    .capture-btn .inner-dot {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: #ff3366;
+      transition: 0.05s linear;
+    }
 
-/* Toast */
-#toast{position:fixed;bottom:145px;left:50%;transform:translateX(-50%) translateY(14px);background:rgba(0,255,180,.13);border:1px solid #00ffb4;color:#00ffb4;font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:1.5px;padding:8px 20px;border-radius:20px;opacity:0;transition:opacity .28s,transform .28s;pointer-events:none;z-index:300;white-space:nowrap}
-#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    .capture-btn:active .inner-dot {
+      background: #cc0044;
+    }
 
-/* Splash */
-#splash{position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;z-index:500;transition:opacity .5s}
-#splash.gone{opacity:0;pointer-events:none}
-.spl-title{font-family:'Share Tech Mono',monospace;color:#00ffb4;font-size:26px;letter-spacing:6px}
-.spl-sub{color:rgba(255,255,255,.35);font-size:12px;letter-spacing:2px;font-family:sans-serif}
-.spl-bar{width:50px;height:2px;background:rgba(0,255,180,.18);border-radius:2px;overflow:hidden;position:relative}
-.spl-bar::after{content:'';position:absolute;left:-50%;width:50%;height:100%;background:#00ffb4;animation:sbar .9s infinite ease-in-out}
-@keyframes sbar{0%{left:-50%}100%{left:150%}}
+    /* Botões de calibração em linha */
+    .calibration-panel {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      padding: 12px 16px 16px;
+      background: rgba(0,0,0,0.6);
+      flex-wrap: wrap;
+    }
 
-/* Erro */
-#errMsg{position:fixed;inset:0;background:#000;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;color:rgba(255,255,255,.5);font-family:'Share Tech Mono',monospace;font-size:13px;letter-spacing:1px;text-align:center;padding:30px;z-index:400}
-#errMsg.show{display:flex}
-#errMsg span{font-size:44px}
-</style>
+    button.calib-btn, button.reset-btn {
+      background: #2c3e66;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 60px;
+      color: white;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: 0.2s;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    button.calib-btn {
+      background: #1e6f3f;
+    }
+
+    button.calib-btn:hover {
+      background: #2a8a4f;
+    }
+
+    button.reset-btn {
+      background: #7a2e2e;
+    }
+
+    button.reset-btn:hover {
+      background: #9b3b3b;
+    }
+
+    .status {
+      font-family: monospace;
+      font-size: 0.8rem;
+      background: #000000aa;
+      color: #0f0;
+      padding: 5px 10px;
+      border-radius: 20px;
+      text-align: center;
+      margin: 8px 12px;
+      backdrop-filter: blur(4px);
+    }
+
+    .info {
+      color: #ddd;
+      font-size: 0.7rem;
+      text-align: center;
+      padding: 8px;
+      background: #00000088;
+      border-radius: 12px;
+      margin: 6px;
+    }
+
+    footer {
+      font-size: 0.7rem;
+      text-align: center;
+      color: #aaa;
+      padding: 10px;
+      background: #0a0a12;
+    }
+  </style>
 </head>
 <body>
-<div id="splash">
-  <div class="spl-title">CAMRÉGUA</div>
-  <div class="spl-sub">câmera · grade · régua</div>
-  <div class="spl-bar"></div>
-</div>
-<div id="errMsg"><span>📷</span><p>Sem acesso à câmera.<br>Verifique as permissões.</p></div>
-<div id="flash"></div>
-<div id="app">
-  <video id="video" autoplay playsinline muted></video>
-  <canvas id="gridCanvas"></canvas>
-  <canvas id="captureCanvas"></canvas>
-  <div id="topBar">
-    <div class="app-title">CAMRÉGUA</div>
-    <div class="top-controls">
-      <div class="icon-btn active" id="gridToggle">⊞</div>
-      <div class="icon-btn" id="flipBtn">🔄</div>
-    </div>
+<div class="app-container">
+  <div class="canvas-wrapper">
+    <canvas id="mainCanvas" width="800" height="600"></canvas>
   </div>
-  <div id="bottomBar">
-    <div id="ruler"><canvas id="rulerCanvas"></canvas></div>
-    <div id="controls">
-      <img id="previewThumb" alt="última foto"/>
-      <button id="captureBtn" aria-label="Tirar foto"></button>
-    </div>
+  <div class="control-bar">
+    <button class="capture-btn" id="captureBtn">
+      <div class="inner-dot"></div>
+    </button>
   </div>
-</div>
-<div id="lightbox">
-  <img id="lbImg" src="" alt="foto"/>
-  <div class="lb-actions">
-    <button class="lb-btn" id="lbClose">FECHAR</button>
-    <button class="lb-btn primary" id="lbSave">⬇ SALVAR NA GALERIA</button>
+  <div class="calibration-panel">
+    <button class="calib-btn" id="calibrateBtn">📏 Calibrar (2 pontos)</button>
+    <button class="reset-btn" id="resetCalibBtn">⟳ Resetar calibração</button>
   </div>
+  <div class="status" id="calibStatus">
+    ⚠️ Não calibrado — use objeto de tamanho conhecido
+  </div>
+  <div class="info">
+    📌 Como calibrar: clique em "Calibrar", depois clique em dois pontos DISTANTES sobre um objeto de <strong>tamanho conhecido</strong> (ex: cartão 85.6mm, régua 100mm, 150mm).<br>
+    Digite a distância real em mm. A régua passará a mostrar cm/mm reais! O botão captura a imagem com a régua.
+  </div>
+  <footer>Régua estilo Académie + Tilibra | Medidas em mm e cm após calibração</footer>
 </div>
-<div id="toast"></div>
 
 <script>
-// ═══════════════════════════════════════
-// ESTADO
-// ═══════════════════════════════════════
-const S = {
-  stream: null,
-  facing: 'environment',
-  showGrid: true,
-  lastPhoto: null,
-  dpr: Math.min(window.devicePixelRatio || 1, 3),
-  mmPerPx: 0,   // mm por CSS pixel — calibrado abaixo
-};
+  (function() {
+    // ----- ELEMENTOS -----
+    const video = document.createElement('video');
+    video.setAttribute('autoplay', '');
+    video.setAttribute('playsinline', '');
+    video.style.display = 'none';
+    document.body.appendChild(video);
 
-// Elementos
-const video        = document.getElementById('video');
-const gridCanvas   = document.getElementById('gridCanvas');
-const captureCanvas= document.getElementById('captureCanvas');
-const rulerCanvas  = document.getElementById('rulerCanvas');
-const gCtx         = gridCanvas.getContext('2d');
-const cCtx         = captureCanvas.getContext('2d');
-const rCtx         = rulerCanvas.getContext('2d');
-const captureBtn   = document.getElementById('captureBtn');
-const flipBtn      = document.getElementById('flipBtn');
-const gridToggle   = document.getElementById('gridToggle');
-const previewThumb = document.getElementById('previewThumb');
-const flash        = document.getElementById('flash');
-const lightbox     = document.getElementById('lightbox');
-const lbImg        = document.getElementById('lbImg');
-const lbClose      = document.getElementById('lbClose');
-const lbSave       = document.getElementById('lbSave');
-const ruler        = document.getElementById('ruler');
-const errMsg       = document.getElementById('errMsg');
-const splash       = document.getElementById('splash');
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
 
-// ═══════════════════════════════════════
-// CALIBRAÇÃO DPI REAL
-// Usa matchMedia resolution para detectar
-// o DPI físico real da tela do dispositivo
-// ═══════════════════════════════════════
-function calibrateDPI() {
-  // Testa do maior para o menor — pega o primeiro que bate
-  const probes = [600,560,520,480,440,400,360,320,294,288,264,240,218,216,
-                  192,168,163,160,144,132,120,110,96,72];
-  let dpi = 96;
-  for (const d of probes) {
-    if (window.matchMedia(`(min-resolution: ${d}dpi)`).matches) {
-      dpi = d;
-      break;
-    }
-  }
-  // mm por CSS pixel = 25.4mm / dpi
-  S.mmPerPx = 25.4 / dpi;
-  console.log(`DPI detectado: ${dpi} | mmPerPx: ${S.mmPerPx.toFixed(5)}`);
-}
+    // ----- CONFIGURAÇÕES DA RÉGUA e CALIBRAÇÃO -----
+    let calibrated = false;
+    let pixelsPerMm = 0;        // quantos pixels representam 1 mm real (ex: 3.0 px/mm)
+    let calibrationPoints = [];  // armazena pontos para calibração
+    let calibrationMode = false;
+    let expectedDistanceMM = 0;
+    let tempPoint = null;
 
-// ═══════════════════════════════════════
-// CÂMERA
-// ═══════════════════════════════════════
-async function startCamera() {
-  if (S.stream) S.stream.getTracks().forEach(t => t.stop());
-  try {
-    S.stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: S.facing, width:{ideal:1920}, height:{ideal:1080} },
-      audio: false
-    });
-    video.srcObject = S.stream;
-    await video.play();
-    hideSplash();
-  } catch(e) {
-    console.error(e);
-    hideSplash();
-    errMsg.classList.add('show');
-  }
-}
+    // Parâmetros da régua (posição e aparência)
+    const RULER_HEIGHT = 56;       // altura da régua em pixels (área das marcações)
+    const RULER_BG_OPACITY = 0.92;
+    const TICK_MM_HEIGHT = 8;
+    const TICK_5MM_HEIGHT = 14;
+    const TICK_CM_HEIGHT = 22;
+    const FONT_SIZE = 12;
 
-function hideSplash() {
-  const sp = document.getElementById('splash');
-  sp.classList.add('gone');
-  setTimeout(() => sp.style.display = 'none', 600);
-}
+    // Flag para evitar múltiplos loops
+    let animationId = null;
+    let streamActive = true;
 
-// ═══════════════════════════════════════
-// RESIZE — recalcula ao girar/redimensionar
-// ═══════════════════════════════════════
-function resize() {
-  const W   = window.innerWidth;
-  const H   = window.innerHeight;
-  const dpr = S.dpr;
-
-  gridCanvas.width  = W * dpr;
-  gridCanvas.height = H * dpr;
-  gridCanvas.style.width  = W + 'px';
-  gridCanvas.style.height = H + 'px';
-
-  const rw = ruler.offsetWidth  || W;
-  const rh = ruler.offsetHeight || 64;
-  rulerCanvas.width  = rw * dpr;
-  rulerCanvas.height = rh * dpr;
-  rulerCanvas.style.width  = rw + 'px';
-  rulerCanvas.style.height = rh + 'px';
-
-  drawGrid();
-  drawRuler();
-}
-
-// ═══════════════════════════════════════
-// GRADE (regra dos terços)
-// ═══════════════════════════════════════
-function drawGrid() {
-  const W = gridCanvas.width;
-  const H = gridCanvas.height;
-  const dpr = S.dpr;
-  gCtx.clearRect(0, 0, W, H);
-  if (!S.showGrid) return;
-
-  gCtx.save();
-
-  // Linhas dos terços
-  gCtx.strokeStyle = 'rgba(0,255,180,0.42)';
-  gCtx.lineWidth   = 1.2 * dpr;
-  for (let i = 1; i <= 2; i++) {
-    gCtx.beginPath(); gCtx.moveTo(W/3*i, 0);   gCtx.lineTo(W/3*i, H);   gCtx.stroke();
-    gCtx.beginPath(); gCtx.moveTo(0,     H/3*i); gCtx.lineTo(W,     H/3*i); gCtx.stroke();
-  }
-
-  // Pontos de intersecção
-  gCtx.fillStyle = 'rgba(0,255,180,0.85)';
-  for (const [px,py] of [[W/3,H/3],[2*W/3,H/3],[W/3,2*H/3],[2*W/3,2*H/3]]) {
-    gCtx.beginPath(); gCtx.arc(px, py, 4*dpr, 0, Math.PI*2); gCtx.fill();
-  }
-
-  // Cruz central
-  const cs = 18 * dpr;
-  gCtx.strokeStyle = 'rgba(0,255,180,0.72)';
-  gCtx.lineWidth   = 1.5 * dpr;
-  gCtx.beginPath();
-  gCtx.moveTo(W/2-cs, H/2); gCtx.lineTo(W/2+cs, H/2);
-  gCtx.moveTo(W/2, H/2-cs); gCtx.lineTo(W/2, H/2+cs);
-  gCtx.stroke();
-
-  gCtx.restore();
-}
-
-// ═══════════════════════════════════════
-// RÉGUA — mm/cm reais como numa régua física
-//
-// Layout igual à régua TR-10 da imagem:
-//  - linha de base no TOPO
-//  - traços descem para baixo
-//  - traço cm   = 70% da altura
-//  - traço 5mm  = 45% da altura
-//  - traço 1mm  = 25% da altura
-//  - número do cm fica ABAIXO do traço, junto à base
-// ═══════════════════════════════════════
-function drawRuler() {
-  const W   = rulerCanvas.width;
-  const H   = rulerCanvas.height;
-  const dpr = S.dpr;
-
-  rCtx.clearRect(0, 0, W, H);
-
-  // pixels de canvas por mm
-  const pxPerMm = (1 / S.mmPerPx) * dpr;   // CSS_px_per_mm * dpr
-  const totalMm = Math.ceil(W / pxPerMm) + 2;
-
-  const baseY  = 1.5 * dpr;               // linha de base (topo)
-  const tCm    = H * 0.68;                // altura traço cm
-  const tHalf  = H * 0.44;                // altura traço 5mm
-  const tMm    = H * 0.24;                // altura traço 1mm
-
-  rCtx.save();
-  rCtx.strokeStyle = '#00ffb4';
-  rCtx.fillStyle   = '#00ffb4';
-  rCtx.lineWidth   = 1 * dpr;
-
-  // Linha base horizontal
-  rCtx.beginPath();
-  rCtx.moveTo(0, baseY);
-  rCtx.lineTo(W, baseY);
-  rCtx.stroke();
-
-  // Fonte
-  const fs = Math.round(Math.max(8, 9) * dpr);
-  rCtx.font      = `${fs}px 'Share Tech Mono', monospace`;
-  rCtx.textAlign = 'center';
-
-  for (let mm = 0; mm <= totalMm; mm++) {
-    const x = mm * pxPerMm;
-    if (x > W + 1) break;
-
-    let tH;
-    if (mm % 10 === 0) {
-      tH = tCm;
-      // Número do centímetro na parte baixa (como na régua real)
-      rCtx.fillText(String(mm / 10), x, H - 2 * dpr);
-    } else if (mm % 5 === 0) {
-      tH = tHalf;
-    } else {
-      tH = tMm;
+    // ----- INICIALIZAÇÃO DA CÂMERA (preferir traseira) -----
+    async function initCamera() {
+      try {
+        const constraints = {
+          video: {
+            facingMode: { exact: "environment" }, // câmera traseira
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = stream;
+        await video.play();
+        // Ajusta canvas para mesma proporção do vídeo
+        function resizeCanvas() {
+          const container = canvas.parentElement;
+          const maxWidth = container.clientWidth;
+          const videoRatio = video.videoWidth / video.videoHeight;
+          let canvasWidth = maxWidth;
+          let canvasHeight = canvasWidth / videoRatio;
+          if (canvasHeight > window.innerHeight * 0.7) {
+            canvasHeight = window.innerHeight * 0.7;
+            canvasWidth = canvasHeight * videoRatio;
+          }
+          canvas.width = canvasWidth;
+          canvas.height = canvasHeight;
+        }
+        video.addEventListener('loadedmetadata', () => {
+          resizeCanvas();
+          startDrawLoop();
+        });
+        window.addEventListener('resize', () => {
+          if (video.videoWidth) resizeCanvas();
+        });
+      } catch (err) {
+        console.error("Erro ao acessar câmera: ", err);
+        document.getElementById('calibStatus').innerHTML = "❌ Erro ao acessar câmera. Verifique permissões.";
+        document.getElementById('calibStatus').style.color = "#ff8888";
+      }
     }
 
-    rCtx.beginPath();
-    rCtx.moveTo(x, baseY);
-    rCtx.lineTo(x, baseY + tH);
-    rCtx.stroke();
-  }
-
-  rCtx.restore();
-}
-
-// ═══════════════════════════════════════
-// CAPTURA — grava grade + régua na foto
-// ═══════════════════════════════════════
-async function capturePhoto() {
-  const vw = video.videoWidth  || window.innerWidth;
-  const vh = video.videoHeight || window.innerHeight;
-
-  const scaleW = vw / window.innerWidth;
-  const scaleH = vh / window.innerHeight;
-
-  const rulerCssH  = ruler.offsetHeight;
-  const rulerVidH  = rulerCssH * scaleH;
-
-  captureCanvas.width  = vw;
-  captureCanvas.height = vh;
-
-  // Frame da câmera
-  cCtx.drawImage(video, 0, 0, vw, vh);
-
-  // Grade
-  if (S.showGrid) {
-    cCtx.save();
-    cCtx.strokeStyle = 'rgba(0,255,180,0.48)';
-    cCtx.lineWidth   = Math.max(1, 1.5 * scaleW);
-    for (let i = 1; i <= 2; i++) {
-      cCtx.beginPath(); cCtx.moveTo(vw/3*i,0);  cCtx.lineTo(vw/3*i,vh);  cCtx.stroke();
-      cCtx.beginPath(); cCtx.moveTo(0,vh/3*i);  cCtx.lineTo(vw,vh/3*i);  cCtx.stroke();
+    // ----- LOOP DE DESENHO (vídeo + régua) -----
+    function drawVideoAndRuler() {
+      if (!video.videoWidth || !canvas.width) return;
+      // Desenha o frame do vídeo no canvas
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      // Desenha a régua por cima
+      drawRulerOnCanvas();
     }
-    cCtx.fillStyle = 'rgba(0,255,180,0.85)';
-    for (const [px,py] of [[vw/3,vh/3],[2*vw/3,vh/3],[vw/3,2*vh/3],[2*vw/3,2*vh/3]]) {
-      cCtx.beginPath(); cCtx.arc(px,py,5*scaleW,0,Math.PI*2); cCtx.fill();
+
+    function startDrawLoop() {
+      if (animationId) cancelAnimationFrame(animationId);
+      function frame() {
+        if (video.readyState >= 2) {
+          drawVideoAndRuler();
+        }
+        animationId = requestAnimationFrame(frame);
+      }
+      frame();
     }
-    const cs = 20*scaleW;
-    cCtx.strokeStyle = 'rgba(0,255,180,0.72)';
-    cCtx.beginPath();
-    cCtx.moveTo(vw/2-cs,vh/2); cCtx.lineTo(vw/2+cs,vh/2);
-    cCtx.moveTo(vw/2,vh/2-cs); cCtx.lineTo(vw/2,vh/2+cs);
-    cCtx.stroke();
-    cCtx.restore();
-  }
 
-  // Régua
-  drawRulerOnCapture(cCtx, vw, vh, rulerVidH, scaleW, scaleH);
-
-  return captureCanvas.toDataURL('image/jpeg', 0.95);
-}
-
-function drawRulerOnCapture(ctx, vw, vh, rulerH, scaleW, scaleH) {
-  ctx.save();
-
-  // Fundo
-  ctx.fillStyle = 'rgba(6,6,6,0.94)';
-  ctx.fillRect(0, vh - rulerH, vw, rulerH);
-
-  // Borda topo
-  ctx.strokeStyle = 'rgba(0,255,180,0.28)';
-  ctx.lineWidth   = scaleH;
-  ctx.beginPath(); ctx.moveTo(0,vh-rulerH); ctx.lineTo(vw,vh-rulerH); ctx.stroke();
-
-  // Escala — usa mesma calibração mm->px ajustada pela escala do vídeo
-  const pxPerMm  = (1 / S.mmPerPx) * scaleW;
-  const totalMm  = Math.ceil(vw / pxPerMm) + 2;
-  const baseY    = vh - rulerH + scaleH;
-  const tCm      = rulerH * 0.68;
-  const tHalf    = rulerH * 0.44;
-  const tMm      = rulerH * 0.24;
-  const fs       = Math.round(Math.max(8, 9 * scaleW));
-
-  ctx.strokeStyle = '#00ffb4';
-  ctx.fillStyle   = '#00ffb4';
-  ctx.lineWidth   = Math.max(1, scaleW);
-  ctx.font        = `${fs}px monospace`;
-  ctx.textAlign   = 'center';
-
-  ctx.beginPath(); ctx.moveTo(0,baseY); ctx.lineTo(vw,baseY); ctx.stroke();
-
-  for (let mm = 0; mm <= totalMm; mm++) {
-    const x = mm * pxPerMm;
-    if (x > vw + 1) break;
-    let tH;
-    if (mm % 10 === 0) {
-      tH = tCm;
-      ctx.fillText(String(mm/10), x, vh - 2*scaleH);
-    } else if (mm % 5 === 0) {
-      tH = tHalf;
-    } else {
-      tH = tMm;
+    // ----- DESENHO DA RÉGUA (estilo igual à imagem: traços mm, cm, numeração 0, 1cm, 2, 3... e texto "tilibra") -----
+    function drawRulerOnCanvas() {
+      if (!canvas.width || !canvas.height) return;
+      
+      const rulerY = canvas.height - RULER_HEIGHT;
+      const rulerWidth = canvas.width;
+      
+      // Fundo semitransparente estilo "régua plástica"
+      ctx.save();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = `rgba(255, 255, 245, ${RULER_BG_OPACITY})`;
+      ctx.fillRect(0, rulerY, rulerWidth, RULER_HEIGHT);
+      // Borda superior fina
+      ctx.strokeStyle = "#888";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, rulerY);
+      ctx.lineTo(rulerWidth, rulerY);
+      ctx.stroke();
+      
+      // Caso não calibrado: exibe mensagem de aviso
+      if (!calibrated || pixelsPerMm <= 0) {
+        ctx.fillStyle = "#b33";
+        ctx.font = `bold ${FONT_SIZE + 2}px 'Segoe UI'`;
+        ctx.shadowBlur = 0;
+        ctx.fillText("⚙️ Calibre a régua (clique em Calibrar)", 20, rulerY + RULER_HEIGHT/2 + 5);
+        ctx.fillStyle = "#333";
+        ctx.font = `12px monospace`;
+        ctx.fillText("Use objeto de distância conhecida", 20, rulerY + RULER_HEIGHT - 8);
+        ctx.restore();
+        return;
+      }
+      
+      // Se calibrado: desenha marcações em mm e cm com base no fator pixelsPorMm
+      // A régua mostra a distância real (em mm) desde a borda esquerda do canvas até a direita.
+      const mmPerPixel = 1 / pixelsPerMm;
+      const maxRealMM = rulerWidth * mmPerPixel;   // comprimento real representado na régua (em mm)
+      const maxRealCM = maxRealMM / 10;
+      
+      // Estilos da régua (traços pretos, texto preto)
+      ctx.fillStyle = "#111";
+      ctx.font = `${FONT_SIZE}px 'Courier New', monospace`;
+      ctx.strokeStyle = "#111";
+      ctx.lineWidth = 1.2;
+      
+      // Loop para desenhar marcações a cada 1 mm (mas otimizado para não sobrecarregar)
+      // Para mm: intervalo de 1mm; para performance limitar visível
+      const startMM = 0;
+      const endMM = Math.floor(maxRealMM);
+      
+      // Guarda posições já desenhadas para evitar repetição
+      for (let mm = startMM; mm <= endMM; mm++) {
+        const realPosMm = mm; // distância real desde borda esquerda (mm)
+        const x = realPosMm * pixelsPerMm;
+        if (x > rulerWidth) break;
+        if (x < 0) continue;
+        
+        // Determina tipo do traço: cm, 5mm ou 1mm
+        const isCm = (mm % 10 === 0);
+        const is5mm = (mm % 5 === 0 && !isCm);
+        const is1mm = !isCm && !is5mm;
+        
+        let tickHeight = TICK_MM_HEIGHT;
+        if (is5mm) tickHeight = TICK_5MM_HEIGHT;
+        if (isCm) tickHeight = TICK_CM_HEIGHT;
+        
+        // Desenha o traço vertical
+        ctx.beginPath();
+        ctx.moveTo(x, rulerY + RULER_HEIGHT - 2);
+        ctx.lineTo(x, rulerY + RULER_HEIGHT - tickHeight);
+        ctx.stroke();
+        
+        // Se for centímetro, escreve o número no estilo da imagem: 0, "1cm", 2, 3, 4...
+        if (isCm) {
+          const cmValue = mm / 10;
+          let label = "";
+          if (cmValue === 0) label = "0";
+          else if (cmValue === 1) label = "1cm";      // exatamente como na imagem: "1cm"
+          else label = cmValue.toString();
+          
+          ctx.fillStyle = "#111";
+          ctx.font = `500 ${FONT_SIZE}px 'Segoe UI', 'Courier New'`;
+          ctx.shadowBlur = 0;
+          const textWidth = ctx.measureText(label).width;
+          // Centraliza o texto acima do traço ou um pouco deslocado
+          let textX = x - textWidth/2;
+          if (textX < 2) textX = 2;
+          if (textX + textWidth > rulerWidth - 5) textX = rulerWidth - textWidth - 2;
+          ctx.fillText(label, textX, rulerY + RULER_HEIGHT - tickHeight - 4);
+        } else if (is5mm) {
+          // Traço médio, sem texto (apenas marcação)
+          ctx.fillStyle = "#444";
+        } else {
+          // traço de mm - sem texto adicional
+        }
+      }
+      
+      // ------------------ DETALHES FINAIS (estilo "tilibra" e cantos) ------------------
+      // Adiciona texto "tilibra" próximo ao final direito da régua (igual à referência)
+      ctx.font = `italic 11px 'Segoe UI', 'Times New Roman'`;
+      ctx.fillStyle = "#2c2c2c";
+      const tilibraText = "tilibra";
+      const textW = ctx.measureText(tilibraText).width;
+      ctx.fillText(tilibraText, rulerWidth - textW - 12, rulerY + RULER_HEIGHT - 8);
+      
+      // Pequeno ícone "mm" no canto esquerdo inferior da régua
+      ctx.font = `10px monospace`;
+      ctx.fillStyle = "#3a3a3a";
+      ctx.fillText("mm", 6, rulerY + RULER_HEIGHT - 6);
+      ctx.fillStyle = "#000000aa";
+      ctx.fillText("cm", 6, rulerY + 14);
+      
+      // Extra: para dar aspecto de régua física, pequenos traços nas extremidades
+      ctx.beginPath();
+      ctx.moveTo(0, rulerY + RULER_HEIGHT-2);
+      ctx.lineTo(3, rulerY + RULER_HEIGHT-10);
+      ctx.moveTo(rulerWidth-1, rulerY + RULER_HEIGHT-2);
+      ctx.lineTo(rulerWidth-4, rulerY + RULER_HEIGHT-10);
+      ctx.stroke();
+      
+      ctx.restore();
+      
+      // Exibe no canto superior direito a escala atual (útil)
+      ctx.save();
+      ctx.font = "10px monospace";
+      ctx.fillStyle = "#00ffc3";
+      ctx.shadowBlur = 0;
+      ctx.fillText(`${(pixelsPerMm * 10).toFixed(1)} px/cm`, canvas.width-72, 18);
+      ctx.fillStyle = "#ffffffcc";
+      ctx.fillText(`1cm = ${(pixelsPerMm*10).toFixed(1)}px`, canvas.width-72, 32);
+      ctx.restore();
     }
-    ctx.beginPath(); ctx.moveTo(x,baseY); ctx.lineTo(x,baseY+tH); ctx.stroke();
-  }
-
-  ctx.restore();
-}
-
-// ═══════════════════════════════════════
-// SALVAR NA GALERIA
-//
-// iOS Safari / Chrome Android:
-//   Web Share API com arquivo de imagem
-//   → sistema salva direto na galeria de fotos
-//
-// Fallback (desktop/browsers sem share):
-//   <a download> dispara o download
-// ═══════════════════════════════════════
-async function saveToGallery(dataUrl) {
-  const filename = `camregua_${Date.now()}.jpg`;
-
-  // Converte dataUrl → Blob → File
-  const res  = await fetch(dataUrl);
-  const blob = await res.blob();
-  const file = new File([blob], filename, { type: 'image/jpeg' });
-
-  // Web Share API — único jeito real de salvar na galeria via PWA
-  if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({
-        files: [file],
-        title: 'CamRégua',
+    
+    // ----- CALIBRAÇÃO (2 pontos + distância real) -----
+    function startCalibration() {
+      if (calibrationMode) {
+        alert("Já está em modo calibração. Complete ou cancele.");
+        return;
+      }
+      calibrationMode = true;
+      calibrationPoints = [];
+      document.getElementById('calibStatus').innerHTML = "🔵 Modo calibração: clique no PRIMEIRO ponto (ex: início do objeto)";
+      document.getElementById('calibStatus').style.color = "#aaffdd";
+      // Exibe um cursor de mira no canvas
+      canvas.style.cursor = "crosshair";
+    }
+    
+    // Manipulação de clique no canvas para calibração
+    function handleCanvasClick(e) {
+      if (!calibrationMode) return;
+      
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;   // canvas físico vs CSS
+      const scaleY = canvas.height / rect.height;
+      let mouseX = (e.clientX - rect.left) * scaleX;
+      let mouseY = (e.clientY - rect.top) * scaleY;
+      mouseX = Math.min(Math.max(0, mouseX), canvas.width);
+      mouseY = Math.min(Math.max(0, mouseY), canvas.height);
+      
+      const point = { x: mouseX, y: mouseY };
+      calibrationPoints.push(point);
+      
+      if (calibrationPoints.length === 1) {
+        // primeiro ponto
+        drawTemporaryPoint(point, "ponto A");
+        document.getElementById('calibStatus').innerHTML = "🟢 PRIMEIRO ponto marcado! Clique no SEGUNDO ponto (distância conhecida)";
+      } else if (calibrationPoints.length === 2) {
+        drawTemporaryPoint(calibrationPoints[0], "A");
+        drawTemporaryPoint(point, "B");
+        // pede a distância real em mm
+        const pixelDistance = Math.hypot(
+          calibrationPoints[1].x - calibrationPoints[0].x,
+          calibrationPoints[1].y - calibrationPoints[0].y
+        );
+        if (pixelDistance < 5) {
+          alert("Distância muito pequena entre pontos. Tente novamente com pontos mais afastados.");
+          resetCalibrationSession();
+          return;
+        }
+        let realDistMM = prompt("📏 Qual a distância REAL entre os dois pontos (em milímetros)?\nEx: 100mm = 10cm , 85.6mm para cartão de crédito", "100");
+        if (realDistMM === null || isNaN(parseFloat(realDistMM)) || parseFloat(realDistMM) <= 0) {
+          alert("Valor inválido. Calibração cancelada.");
+          resetCalibrationSession();
+          return;
+        }
+        realDistMM = parseFloat(realDistMM);
+        // calcula pixels por mm
+        const computedPxPerMm = pixelDistance / realDistMM;
+        if (computedPxPerMm <= 0.01) {
+          alert("Fator de calibração inválido. Tente pontos mais distantes.");
+          resetCalibrationSession();
+          return;
+        }
+        pixelsPerMm = computedPxPerMm;
+        calibrated = true;
+        calibrationMode = false;
+        canvas.style.cursor = "crosshair";
+        document.getElementById('calibStatus').innerHTML = `✅ CALIBRADO! ${(pixelsPerMm * 10).toFixed(2)} px/cm | 1mm = ${pixelsPerMm.toFixed(2)}px`;
+        document.getElementById('calibStatus').style.color = "#aaffaa";
+        // redesenha imediatamente a régua
+        drawVideoAndRuler();
+        // limpa pontos temporários
+        calibrationPoints = [];
+      }
+    }
+    
+    function drawTemporaryPoint(point, label) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 8, 0, 2*Math.PI);
+      ctx.fillStyle = "#ff3366cc";
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 4, 0, 2*Math.PI);
+      ctx.fillStyle = "white";
+      ctx.fill();
+      ctx.fillStyle = "black";
+      ctx.font = "bold 14px monospace";
+      ctx.fillText(label, point.x+6, point.y-4);
+      ctx.restore();
+    }
+    
+    function resetCalibrationSession() {
+      calibrationMode = false;
+      calibrationPoints = [];
+      canvas.style.cursor = "crosshair";
+      document.getElementById('calibStatus').innerHTML = "⚠️ Calibração cancelada ou resetada. Calibre novamente para medidas reais.";
+      document.getElementById('calibStatus').style.color = "#ffaa88";
+    }
+    
+    function resetCalibration() {
+      calibrated = false;
+      pixelsPerMm = 0;
+      calibrationMode = false;
+      calibrationPoints = [];
+      canvas.style.cursor = "crosshair";
+      document.getElementById('calibStatus').innerHTML = "⚙️ Calibração removida. Use objeto conhecido para calibrar.";
+      document.getElementById('calibStatus').style.color = "#ffcc88";
+      drawVideoAndRuler(); // atualiza a régua (mostra aviso)
+    }
+    
+    // ----- CAPTURA DE IMAGEM (botão centralizado e mais alto) -----
+    function captureImage() {
+      if (!canvas) return;
+      try {
+        // Garante que a régua e o vídeo estejam desenhados no momento
+        drawVideoAndRuler(); // força redesenho antes do snapshot
+        const link = document.createElement('a');
+        const timestamp = new Date().toISOString().slice(0,19).replace(/:/g, '-');
+        link.download = `camed_medicao_${timestamp}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      } catch(e) {
+        alert("Erro ao capturar imagem: "+e.message);
+      }
+    }
+    
+    // ----- EVENTOS -----
+    function setupEvents() {
+      const calibrateBtn = document.getElementById('calibrateBtn');
+      const resetBtn = document.getElementById('resetCalibBtn');
+      const captureBtn = document.getElementById('captureBtn');
+      
+      calibrateBtn.addEventListener('click', () => {
+        if (calibrationMode) {
+          alert("Já existe calibração em andamento. Clique em resetar ou complete.");
+          return;
+        }
+        startCalibration();
       });
-      showToast('✓ SALVO NA GALERIA');
-      return;
-    } catch(e) {
-      if (e.name !== 'AbortError') console.warn(e);
-      // usuário cancelou ou erro — tenta fallback
+      
+      resetBtn.addEventListener('click', () => {
+        resetCalibration();
+        if (calibrationMode) calibrationMode = false;
+        calibrationPoints = [];
+      });
+      
+      captureBtn.addEventListener('click', captureImage);
+      
+      canvas.addEventListener('click', handleCanvasClick);
     }
-  }
-
-  // Fallback: link de download (salva em Downloads, não na galeria)
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(a.href);
-  showToast('⬇ FOTO BAIXADA');
-}
-
-// ═══════════════════════════════════════
-// CAPTURA — evento do botão
-// ═══════════════════════════════════════
-let capturing = false;
-
-function doCapture(e) {
-  e.preventDefault();
-  e.stopPropagation();
-  if (capturing) return;
-  capturing = true;
-
-  flash.classList.add('on');
-  setTimeout(() => flash.classList.remove('on'), 130);
-
-  capturePhoto().then(async dataUrl => {
-    S.lastPhoto = dataUrl;
-    previewThumb.src = dataUrl;
-    previewThumb.style.visibility = 'visible';
-
-    // Salva automaticamente na galeria ao capturar
-    await saveToGallery(dataUrl);
-  }).catch(err => {
-    console.error(err);
-    showToast('Erro ao capturar');
-  }).finally(() => {
-    capturing = false;
-  });
-}
-
-captureBtn.addEventListener('touchend', doCapture, { passive: false });
-captureBtn.addEventListener('click',    doCapture);
-
-// ═══════════════════════════════════════
-// OUTROS EVENTOS
-// ═══════════════════════════════════════
-flipBtn.addEventListener('click', () => {
-  S.facing = S.facing === 'environment' ? 'user' : 'environment';
-  startCamera();
-});
-
-gridToggle.addEventListener('click', () => {
-  S.showGrid = !S.showGrid;
-  gridToggle.classList.toggle('active', S.showGrid);
-  drawGrid();
-});
-
-previewThumb.addEventListener('click', () => {
-  if (!S.lastPhoto) return;
-  lbImg.src = S.lastPhoto;
-  lightbox.classList.add('open');
-});
-
-lbClose.addEventListener('click', () => lightbox.classList.remove('open'));
-lbSave.addEventListener('click',  () => S.lastPhoto && saveToGallery(S.lastPhoto));
-
-// ═══════════════════════════════════════
-// TOAST
-// ═══════════════════════════════════════
-let _tt;
-function showToast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(_tt);
-  _tt = setTimeout(() => el.classList.remove('show'), 2500);
-}
-
-// ═══════════════════════════════════════
-// LOOP DE GRADE
-// ═══════════════════════════════════════
-function loop() { drawGrid(); requestAnimationFrame(loop); }
-
-// ═══════════════════════════════════════
-// ORIENTAÇÃO
-// ═══════════════════════════════════════
-window.addEventListener('resize', resize);
-window.addEventListener('orientationchange', () => setTimeout(resize, 380));
-
-// ═══════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════
-calibrateDPI();
-resize();
-startCamera();
-loop();
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(console.warn));
-}
+    
+    // Inicializa tudo
+    async function init() {
+      setupEvents();
+      await initCamera();
+      // Se a câmera falhar, exibe mensagem
+      if (!video.srcObject) {
+        document.getElementById('calibStatus').innerHTML = "❌ Sem acesso à câmera. Permita o acesso e recarregue.";
+      }
+      // Ajusta cursor padrão
+      canvas.style.cursor = "crosshair";
+    }
+    
+    init();
+  })();
 </script>
 </body>
 </html>
