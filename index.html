@@ -8,6 +8,7 @@
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <script src="https://cdn.jsdelivr.net/npm/recordrtc@5.6.2/RecordRTC.min.js"></script>
   <style>
     * {
       margin: 0;
@@ -15,13 +16,11 @@
       box-sizing: border-box;
       user-select: none;
     }
-
     body {
       background: #000;
       overflow: hidden;
       font-family: -apple-system, 'Segoe UI', 'Roboto', sans-serif;
     }
-
     .app-container {
       position: fixed;
       top: 0;
@@ -32,7 +31,6 @@
       display: flex;
       flex-direction: column;
     }
-
     .canvas-wrapper {
       flex: 1;
       position: relative;
@@ -42,7 +40,6 @@
       justify-content: center;
       align-items: center;
     }
-
     canvas {
       position: absolute;
       top: 0;
@@ -52,8 +49,6 @@
       object-fit: contain;
       cursor: crosshair;
     }
-
-    /* Barra inferior com dois botões */
     .control-bar {
       background: rgba(0, 0, 0, 0.5);
       backdrop-filter: blur(20px);
@@ -64,8 +59,6 @@
       border-top: 0.5px solid rgba(255,255,255,0.2);
       gap: 20px;
     }
-
-    /* Botão de foto (central) e botão de vídeo (ao lado) */
     .photo-btn {
       width: 76px;
       height: 76px;
@@ -81,16 +74,13 @@
       justify-content: center;
       flex-shrink: 0;
     }
-    .photo-btn:active {
-      transform: scale(0.94);
-    }
+    .photo-btn:active { transform: scale(0.94); }
     .photo-btn .inner-dot {
       width: 64px;
       height: 64px;
       border-radius: 50%;
       background: #ff3366;
     }
-
     .video-btn {
       background: rgba(255,255,255,0.2);
       border: none;
@@ -106,10 +96,7 @@
       align-items: center;
       gap: 8px;
     }
-    .video-btn:active {
-      transform: scale(0.96);
-      background: rgba(255,255,255,0.4);
-    }
+    .video-btn:active { transform: scale(0.96); background: rgba(255,255,255,0.4); }
     .video-btn.recording {
       background: #ff3b30;
       animation: pulse 1s infinite;
@@ -119,7 +106,6 @@
       50% { opacity: 0.7; }
       100% { opacity: 1; }
     }
-
     .install-btn {
       position: absolute;
       right: 20px;
@@ -135,7 +121,6 @@
       z-index: 20;
       display: none;
     }
-
     .info {
       position: absolute;
       bottom: 100px;
@@ -152,7 +137,6 @@
       backdrop-filter: blur(10px);
       pointer-events: none;
     }
-
     .toast {
       position: fixed;
       bottom: 120px;
@@ -181,9 +165,9 @@
     <button class="photo-btn" id="photoBtn">
       <div class="inner-dot"></div>
     </button>
-    <div style="width: 76px;"></div> <!-- Espaçador para manter o botão de foto centralizado -->
+    <div style="width: 76px;"></div>
   </div>
-  <div class="info" id="infoMsg">📷 Toque no botão central para foto | Botão ao lado para vídeo</div>
+  <div class="info" id="infoMsg">📷 Foto: botão central | 🎥 Vídeo: botão ao lado</div>
   <button id="installBtn" class="install-btn">📲 Instalar</button>
 </div>
 <div id="toast" class="toast">✅ Pronto!</div>
@@ -191,11 +175,11 @@
 <script>
   (function() {
     // --- Elementos ---
-    const video = document.createElement('video');
-    video.setAttribute('autoplay', '');
-    video.setAttribute('playsinline', '');
-    video.style.display = 'none';
-    document.body.appendChild(video);
+    const videoElem = document.createElement('video');
+    videoElem.setAttribute('autoplay', '');
+    videoElem.setAttribute('playsinline', '');
+    videoElem.style.display = 'none';
+    document.body.appendChild(videoElem);
 
     const canvas = document.getElementById('mainCanvas');
     const ctx = canvas.getContext('2d');
@@ -213,11 +197,10 @@
 
     // --- Estado da gravação ---
     let isRecording = false;
-    let mediaRecorder = null;
-    let recordedChunks = [];
+    let recordRTC = null;
     let canvasStream = null;
 
-    // --- Inicializar câmera (traseira) ---
+    // --- Câmera ---
     let currentStream = null;
 
     async function initCamera() {
@@ -230,8 +213,8 @@
         };
         let stream = await navigator.mediaDevices.getUserMedia(constraints);
         currentStream = stream;
-        video.srcObject = stream;
-        await video.play();
+        videoElem.srcObject = stream;
+        await videoElem.play();
         resizeCanvasAndDraw();
         startDrawLoop();
         return true;
@@ -240,25 +223,25 @@
         try {
           let stream = await navigator.mediaDevices.getUserMedia({ video: true });
           currentStream = stream;
-          video.srcObject = stream;
-          await video.play();
+          videoElem.srcObject = stream;
+          await videoElem.play();
           resizeCanvasAndDraw();
           startDrawLoop();
           return true;
         } catch(e) {
           console.error("Erro fatal na câmera", e);
-          document.getElementById('infoMsg').innerHTML = "❌ Sem acesso à câmera. Verifique permissões.";
+          document.getElementById('infoMsg').innerHTML = "❌ Sem acesso à câmera.";
           return false;
         }
       }
     }
 
     function resizeCanvasAndDraw() {
-      if (!video.videoWidth || !video.videoHeight) return;
+      if (!videoElem.videoWidth || !videoElem.videoHeight) return;
       const container = canvas.parentElement;
       const containerWidth = container.clientWidth;
       const containerHeight = container.clientHeight;
-      const videoAspect = video.videoWidth / video.videoHeight;
+      const videoAspect = videoElem.videoWidth / videoElem.videoHeight;
       let canvasWidth = containerWidth;
       let canvasHeight = canvasWidth / videoAspect;
       if (canvasHeight > containerHeight) {
@@ -271,40 +254,34 @@
       canvas.style.height = `${canvasHeight}px`;
       canvas.style.left = `${(containerWidth - canvasWidth)/2}px`;
       canvas.style.top = `${(containerHeight - canvasHeight)/2}px`;
-      if (video.readyState >= 2) drawFrame();
+      if (videoElem.readyState >= 2) drawFrame();
     }
 
     window.addEventListener('resize', () => resizeCanvasAndDraw());
     window.addEventListener('orientationchange', () => setTimeout(resizeCanvasAndDraw, 50));
 
     function drawFrame() {
-      if (!video.videoWidth || !canvas.width) return;
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      if (!videoElem.videoWidth || !canvas.width) return;
+      ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
       drawProfessionalGrid();
       drawRuler();
     }
 
     function drawProfessionalGrid() {
-      const w = canvas.width;
-      const h = canvas.height;
+      const w = canvas.width, h = canvas.height;
       ctx.save();
       ctx.strokeStyle = GRID_COLOR;
       ctx.lineWidth = LINE_WIDTH;
-      const x1 = w / 3, x2 = 2 * w / 3;
-      const y1 = h / 3, y2 = 2 * h / 3;
-      ctx.beginPath(); ctx.moveTo(x1, 0); ctx.lineTo(x1, h); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x2, 0); ctx.lineTo(x2, h); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, y1); ctx.lineTo(w, y1); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, y2); ctx.lineTo(w, y2); ctx.stroke();
-
+      const x1 = w/3, x2 = 2*w/3, y1 = h/3, y2 = 2*h/3;
+      ctx.beginPath(); ctx.moveTo(x1,0); ctx.lineTo(x1,h); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x2,0); ctx.lineTo(x2,h); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,y1); ctx.lineTo(w,y1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,y2); ctx.lineTo(w,y2); ctx.stroke();
       const cx = w/2, cy = h/2;
       ctx.beginPath(); ctx.arc(cx, cy, FOCUS_CIRCLE_RADIUS, 0, 2*Math.PI); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(cx-8, cy); ctx.lineTo(cx+8, cy); ctx.moveTo(cx, cy-8); ctx.lineTo(cx, cy+8); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx-8,cy); ctx.lineTo(cx+8,cy); ctx.moveTo(cx,cy-8); ctx.lineTo(cx,cy+8); ctx.stroke();
       ctx.beginPath(); ctx.arc(cx, cy, FOCUS_CIRCLE_RADIUS*0.4, 0, 2*Math.PI); ctx.stroke();
-
-      const scaleWidth = 180;
-      const startX = (w/2) - (scaleWidth/2);
-      const scaleY = SCALE_Y_POS;
+      const scaleWidth = 180, startX = w/2 - scaleWidth/2, scaleY = SCALE_Y_POS;
       const tickSpacing = scaleWidth / (SCALE_VALUES.length-1);
       ctx.beginPath(); ctx.moveTo(startX, scaleY); ctx.lineTo(startX+scaleWidth, scaleY); ctx.stroke();
       ctx.font = "12px 'Courier New'";
@@ -318,7 +295,6 @@
         ctx.fillText(label, xTick, scaleY-8);
       }
       ctx.beginPath(); ctx.moveTo(w/2, scaleY-10); ctx.lineTo(w/2-4, scaleY-2); ctx.lineTo(w/2+4, scaleY-2); ctx.fillStyle = `rgba(255,200,100,0.9)`; ctx.fill();
-
       [[x1,y1],[x1,y2],[x2,y1],[x2,y2]].forEach(([cx,cy]) => {
         ctx.beginPath(); ctx.rect(cx-12, cy-8, 24, 16); ctx.stroke();
         ctx.beginPath(); ctx.rect(cx-8, cy-12, 16, 24); ctx.stroke();
@@ -333,7 +309,6 @@
       ctx.fillRect(0, rulerY, w, RULER_HEIGHT);
       ctx.strokeStyle = "#aaa";
       ctx.beginPath(); ctx.moveTo(0, rulerY); ctx.lineTo(w, rulerY); ctx.stroke();
-
       const totalMM = Math.floor(w / PX_PER_MM);
       ctx.fillStyle = "#222";
       ctx.font = "11px 'Courier New'";
@@ -375,13 +350,13 @@
     function startDrawLoop() {
       if (animationId) cancelAnimationFrame(animationId);
       function frame() {
-        if (video.readyState >= 2) drawFrame();
+        if (videoElem.readyState >= 2) drawFrame();
         animationId = requestAnimationFrame(frame);
       }
       frame();
     }
 
-    // --- Foto ---
+    // --- Captura de foto (compartilhar) ---
     async function capturePhoto() {
       drawFrame();
       canvas.toBlob(async (blob) => {
@@ -406,51 +381,68 @@
       showToast("📁 Imagem baixada");
     }
 
-    // --- Vídeo ---
+    // --- Gravação de vídeo usando RecordRTC (resolve todos os problemas de codec) ---
     async function startRecording() {
       if (isRecording) return;
       try {
-        // Cria stream a partir do canvas (30 fps)
+        // Cria stream do canvas (30 fps)
         canvasStream = canvas.captureStream(30);
-        // Opcional: adicionar áudio do microfone (descomente se quiser)
-        // let audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        // audioStream.getTracks().forEach(track => canvasStream.addTrack(track));
-        mediaRecorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm' });
-        recordedChunks = [];
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) recordedChunks.push(event.data);
-        };
-        mediaRecorder.onstop = () => {
-          const blob = new Blob(recordedChunks, { type: 'video/webm' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `camed_video_${Date.now()}.webm`;
-          a.click();
-          URL.revokeObjectURL(url);
-          showToast("🎥 Vídeo salvo (verifique Downloads)");
-          if (canvasStream) canvasStream.getTracks().forEach(t => t.stop());
-          canvasStream = null;
-          isRecording = false;
-          const videoBtn = document.getElementById('videoBtn');
-          videoBtn.classList.remove('recording');
-          videoBtn.innerHTML = "🎥 Iniciar Vídeo";
-        };
-        mediaRecorder.start(1000); // grava em pedaços de 1 segundo
+        
+        recordRTC = new RecordRTC(canvasStream, {
+          type: 'video',
+          mimeType: 'video/webm',  // WebM é amplamente suportado
+          frameRate: 30,
+          quality: 10,
+          videoBitsPerSecond: 2500000,
+          onRecordingStopped: (blob) => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `camed_video_${Date.now()}.webm`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast("🎥 Vídeo salvo!");
+            cleanupRecording();
+          }
+        });
+        
+        recordRTC.startRecording();
         isRecording = true;
-        const videoBtn = document.getElementById('videoBtn');
-        videoBtn.classList.add('recording');
-        videoBtn.innerHTML = "⏹️ Parar Gravação";
-        showToast("🔴 Gravando vídeo com grade e régua...");
+        updateVideoButtonUI(true);
+        showToast("🔴 Gravando vídeo...");
       } catch (err) {
         console.error("Erro ao iniciar gravação:", err);
-        showToast("Erro ao iniciar gravação: " + err.message);
+        showToast("Erro: " + err.message);
+        cleanupRecording();
       }
     }
 
     function stopRecording() {
-      if (mediaRecorder && isRecording) {
-        mediaRecorder.stop();
+      if (recordRTC && isRecording) {
+        recordRTC.stopRecording();
+      } else {
+        cleanupRecording();
+      }
+    }
+
+    function cleanupRecording() {
+      if (canvasStream) {
+        canvasStream.getTracks().forEach(t => t.stop());
+        canvasStream = null;
+      }
+      recordRTC = null;
+      isRecording = false;
+      updateVideoButtonUI(false);
+    }
+
+    function updateVideoButtonUI(recording) {
+      const btn = document.getElementById('videoBtn');
+      if (recording) {
+        btn.classList.add('recording');
+        btn.innerHTML = "⏹️ Parar Gravação";
+      } else {
+        btn.classList.remove('recording');
+        btn.innerHTML = "🎥 Iniciar Vídeo";
       }
     }
 
@@ -473,15 +465,13 @@
         if (deferredPrompt) {
           deferredPrompt.prompt();
           const { outcome } = await deferredPrompt.userChoice;
-          if (outcome === 'accepted') {
-            installBtn.style.display = 'none';
-          }
+          if (outcome === 'accepted') installBtn.style.display = 'none';
           deferredPrompt = null;
         }
       };
     });
 
-    // --- Eventos ---
+    // Eventos
     document.getElementById('photoBtn').addEventListener('click', capturePhoto);
     document.getElementById('videoBtn').addEventListener('click', toggleVideo);
 
@@ -492,7 +482,6 @@
       setTimeout(() => toast.style.opacity = '0', 2000);
     }
 
-    // Inicializar
     initCamera();
   })();
 </script>
