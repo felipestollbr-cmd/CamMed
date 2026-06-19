@@ -1,4 +1,4 @@
-const CACHE_NAME = 'camed-v12';
+const CACHE_NAME = 'camed-v13';
 const urlsToCache = [
   './',
   './index.html',
