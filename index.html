@@ -26,7 +26,6 @@
       position:absolute; top:0; left:0; width:100%; height:100%;
       object-fit:cover; cursor:crosshair;
     }
-
     .mode-selector {
       position:absolute; top:80px; left:0; right:0;
       display:flex; justify-content:center; gap:8px;
@@ -43,7 +42,6 @@
       background:rgba(255,255,255,0.2); color:white;
     }
     .mode-btn:active { transform:scale(0.95); }
-
     .control-bar {
       background:rgba(0,0,0,0.4); backdrop-filter:blur(20px);
       display:flex; justify-content:center; align-items:center;
@@ -68,7 +66,6 @@
       50% { transform:scale(1.1); opacity:0.8; }
       100% { transform:scale(1); opacity:1; }
     }
-
     .install-banner {
       position:fixed; bottom:30px; left:50%; transform:translateX(-50%);
       background:linear-gradient(135deg, #34c759, #28a745);
@@ -82,7 +79,6 @@
     }
     .install-banner:active { transform:translateX(-50%) scale(0.96); }
     .install-banner .icon { font-size:24px; }
-
     .toast {
       position:fixed; bottom:120px; left:50%; transform:translateX(-50%);
       background:rgba(0,0,0,0.8); color:#0f0; padding:8px 16px; border-radius:30px;
@@ -94,7 +90,6 @@
       background:rgba(0,0,0,0.6); padding:2px 8px; border-radius:4px; z-index:30;
       font-family:monospace; pointer-events:none;
     }
-
     @media (orientation: landscape) {
       .app-container { flex-direction:row; }
       .canvas-wrapper { flex:1; }
@@ -126,30 +121,23 @@
   <div class="canvas-wrapper">
     <canvas id="mainCanvas"></canvas>
   </div>
-
-  <!-- Apenas FOTO e VÍDEO -->
   <div class="mode-selector">
     <button class="mode-btn active" data-mode="photo">📷 FOTO</button>
     <button class="mode-btn" data-mode="video">🎥 VÍDEO</button>
   </div>
-
   <div class="control-bar">
     <button class="capture-btn" id="captureBtn">
       <div class="inner-dot"></div>
     </button>
   </div>
-
   <button id="installBtn" class="install-banner">
     <span class="icon">📲</span> Instalar App
   </button>
-
   <div class="debug-status" id="debugStatus">Iniciando...</div>
 </div>
 <div id="toast" class="toast">✅ Pronto!</div>
-
 <script>
   (function() {
-    // --- Elementos ---
     const videoElem = document.createElement('video');
     videoElem.setAttribute('autoplay', '');
     videoElem.setAttribute('playsinline', '');
@@ -160,7 +148,6 @@
     const ctx = canvas.getContext('2d');
     let animationId = null;
 
-    // --- Régua (15% da altura, mínimo 130px) ---
     const RULER_HEIGHT_RATIO = 0.15;
     const MIN_RULER_HEIGHT = 130;
     const TICK_MM_RATIO = 0.20;
@@ -199,7 +186,6 @@
       return null;
     }
 
-    // --- Câmera ---
     async function initCamera() {
       setDebug('Solicitando câmera...');
       try {
@@ -403,7 +389,6 @@
       frame();
     }
 
-    // --- Foto ---
     async function capturePhoto() {
       drawFrame();
       canvas.toBlob(async (blob) => {
@@ -432,7 +417,6 @@
       showToast("📁 Imagem baixada (não foi possível salvar no rolo)");
     }
 
-    // --- Vídeo ---
     async function startRecording() {
       if (isRecording) return;
       try {
@@ -537,7 +521,6 @@
       }
     }
 
-    // --- Instalação PWA ---
     let deferredPrompt = null;
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
@@ -561,30 +544,22 @@
       showToast('📲 App instalado!');
     });
 
-    // --- Service Worker (com registro forçado) ---
+    // Service Worker (opcional, mas mantido para compatibilidade)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js', { scope: './' })
         .then(reg => {
           console.log('SW registrado com sucesso');
-          // Força a ativação imediata se houver um SW em espera
-          if (reg.waiting) {
-            reg.waiting.postMessage('skipWaiting');
-          }
-          // Recarrega a página se o SW foi atualizado
+          if (reg.waiting) reg.waiting.postMessage('skipWaiting');
           reg.addEventListener('updatefound', () => {
             const newSW = reg.installing;
             newSW.addEventListener('statechange', () => {
-              if (newSW.state === 'activated') {
-                console.log('SW atualizado, recarregando...');
-                window.location.reload();
-              }
+              if (newSW.state === 'activated') window.location.reload();
             });
           });
         })
         .catch(err => console.warn('SW falhou:', err));
     }
 
-    // --- Eventos ---
     document.getElementById('captureBtn').addEventListener('click', onMainCapture);
     document.querySelectorAll('.mode-btn').forEach(btn => {
       btn.addEventListener('click', () => setMode(btn.dataset.mode));
@@ -597,7 +572,6 @@
       setTimeout(() => toast.style.opacity = '0', 3000);
     }
 
-    // --- Iniciar ---
     initCamera();
     setMode('photo');
   })();
