@@ -1,9 +1,11 @@
-const CACHE_NAME = 'camed-pro-v7';
+const CACHE_NAME = 'camed-v8';
 const urlsToCache = [
   './',
   './index.html',
   './manifest.json',
-  './sw.js'
+  './sw.js',
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 self.addEventListener('install', event => {
