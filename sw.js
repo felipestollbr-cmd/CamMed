@@ -1,4 +1,4 @@
-const CACHE_NAME = 'camed-v17';
+const CACHE_NAME = 'camed-v18';
 const urlsToCache = [
   './',
   './index.html',
@@ -8,12 +8,15 @@ const urlsToCache = [
   './icon-512.svg'
 ];
 
-// Instalação: cacheia todos os recursos
+// Instalação: cacheia tudo
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
-      .then(() => self.skipWaiting()) // ativa o novo SW imediatamente
+      .then(cache => {
+        console.log('[SW] Cacheando recursos...');
+        return cache.addAll(urlsToCache);
+      })
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -29,16 +32,15 @@ self.addEventListener('activate', event => {
           }
         })
       );
-    }).then(() => self.clients.claim()) // controla todas as abas
+    }).then(() => self.clients.claim())
   );
 });
 
-// Interceptação: busca do cache, fallback para rede, e atualiza cache em segundo plano
+// Interceptação: serve do cache, fallback para rede
 self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request)
       .then(response => {
-        // Se encontrou no cache, retorna
         if (response) {
           // Atualiza o cache em segundo plano (stale-while-revalidate)
           fetch(event.request).then(networkResponse => {
@@ -50,17 +52,10 @@ self.addEventListener('fetch', event => {
           }).catch(() => {});
           return response;
         }
-        // Se não estiver no cache, busca na rede
-        return fetch(event.request).then(networkResponse => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, networkResponse.clone());
-            });
-          }
-          return networkResponse;
-        }).catch(() => {
-          // Fallback offline: retorna uma página de erro, se necessário
-          // Como temos o index.html em cache, isso dificilmente será usado
+        // Se não estiver em cache, busca na rede
+        return fetch(event.request).catch(() => {
+          // Fallback offline: tenta retornar o index.html do cache
+          return caches.match('./index.html');
         });
       })
   );
