@@ -27,21 +27,51 @@
       object-fit:cover; cursor:crosshair;
     }
 
-    /* ---------- ESTILO PADRÃO (RETRATO) ---------- */
+    /* ---------- BADGES SUPERIORES (HDR, AI, escala) ---------- */
+    .top-badges {
+      position:absolute; top:45px; left:16px; right:16px;
+      display:flex; justify-content:space-between; align-items:center;
+      z-index:20; pointer-events:none;
+    }
+    .badge-left, .badge-right {
+      display:flex; gap:12px; align-items:center;
+    }
+    .badge {
+      background:rgba(0,0,0,0.6); backdrop-filter:blur(8px);
+      color:#fff; font-size:12px; font-weight:600;
+      padding:4px 12px; border-radius:20px;
+      border:1px solid rgba(255,255,255,0.2);
+    }
+    .badge.hdr { color:#ffcc00; border-color:#ffcc00; }
+    .badge.ai { color:#00ccff; border-color:#00ccff; }
+    .exp-scale {
+      display:flex; gap:2px; align-items:center;
+      background:rgba(0,0,0,0.5); padding:2px 10px; border-radius:16px;
+    }
+    .exp-scale span {
+      color:rgba(255,255,255,0.5); font-size:11px; font-weight:600;
+    }
+    .exp-scale .active-exp { color:#ffcc00; }
+
+    /* ---------- SELETOR DE MODO (estilo referência) ---------- */
     .mode-selector {
-      position:absolute; top:40px; left:0; right:0;
-      display:flex; justify-content:center; gap:20px;
+      position:absolute; bottom:100px; left:0; right:0;
+      display:flex; justify-content:center; gap:8px;
       background:rgba(0,0,0,0.5); backdrop-filter:blur(20px);
-      padding:6px 16px; border-radius:40px; width:fit-content;
+      padding:8px 16px; border-radius:40px; width:fit-content;
       margin:0 auto; z-index:20;
     }
     .mode-btn {
-      background:transparent; border:none; color:rgba(255,255,255,0.6);
-      font-size:15px; font-weight:600; padding:4px 16px; border-radius:30px;
-      transition:0.2s; cursor:pointer;
+      background:transparent; border:none; color:rgba(255,255,255,0.5);
+      font-size:13px; font-weight:600; padding:6px 14px; border-radius:30px;
+      transition:0.2s; cursor:pointer; white-space:nowrap;
     }
-    .mode-btn.active { background:rgba(255,255,255,0.3); color:white; }
+    .mode-btn.active {
+      background:rgba(255,255,255,0.2); color:white;
+    }
+    .mode-btn:active { transform:scale(0.95); }
 
+    /* ---------- BARRA DE CONTROLE (botão de captura) ---------- */
     .control-bar {
       background:rgba(0,0,0,0.5); backdrop-filter:blur(20px);
       display:flex; justify-content:center; align-items:center;
@@ -67,51 +97,60 @@
       100% { transform:scale(1); opacity:1; }
     }
 
-    .install-btn {
-      position:absolute; right:20px; bottom:20px; background:#34c759;
-      border:none; border-radius:30px; padding:8px 16px; color:white;
-      font-weight:600; font-size:14px; cursor:pointer; z-index:20; display:none;
+    /* ---------- BOTÃO DE INSTALAÇÃO (flutuante, destaque) ---------- */
+    .install-banner {
+      position:fixed; bottom:30px; left:50%; transform:translateX(-50%);
+      background:linear-gradient(135deg, #34c759, #28a745);
+      color:white; font-weight:700; font-size:18px;
+      padding:14px 32px; border-radius:60px;
+      border:none; box-shadow:0 8px 30px rgba(52,199,89,0.5);
+      z-index:1000; cursor:pointer;
+      display:none; /* oculto por padrão, será mostrado via JS */
+      align-items:center; gap:12px;
+      transition:transform 0.2s, box-shadow 0.2s;
+      font-family: -apple-system, 'Segoe UI', sans-serif;
     }
-    .info {
-      position:absolute; bottom:100px; left:0; right:0; text-align:center;
-      color:rgba(255,255,255,0.6); font-size:12px; background:rgba(0,0,0,0.4);
-      padding:4px 8px; width:fit-content; margin:0 auto; border-radius:20px;
-      backdrop-filter:blur(10px); pointer-events:none;
-      z-index:5;
+    .install-banner:active { transform:translateX(-50%) scale(0.96); }
+    .install-banner .icon {
+      font-size:24px;
     }
+
     .toast {
       position:fixed; bottom:120px; left:50%; transform:translateX(-50%);
       background:rgba(0,0,0,0.8); color:#0f0; padding:8px 16px; border-radius:30px;
       font-size:14px; z-index:1000; pointer-events:none; opacity:0;
       transition:opacity 0.3s; white-space:nowrap;
     }
+    .debug-status {
+      position:absolute; top:10px; left:10px; color:#0f0; font-size:11px;
+      background:rgba(0,0,0,0.7); padding:2px 8px; border-radius:4px; z-index:30;
+      font-family:monospace; pointer-events:none;
+    }
 
     /* ---------- MODO PAISAGEM (HORIZONTAL) ---------- */
     @media (orientation: landscape) {
       .app-container { flex-direction:row; }
       .canvas-wrapper { flex:1; }
-      /* Seletor de modo vira um menu vertical à esquerda */
+      .top-badges { top:10px; left:10px; right:10px; }
+      .badge { font-size:10px; padding:2px 10px; }
       .mode-selector {
-        position:fixed; top:50%; left:20px; transform:translateY(-50%);
-        flex-direction:column; gap:12px; background:rgba(0,0,0,0.5);
+        position:fixed; top:50%; right:20px; transform:translateY(-50%);
+        flex-direction:column; gap:8px; background:rgba(0,0,0,0.5);
         padding:12px 8px; border-radius:40px; width:auto;
-        margin:0; right:auto;
+        margin:0; left:auto;
       }
-      .mode-btn { font-size:14px; padding:6px 12px; }
-      /* Barra de controle fica à esquerda, vertical */
+      .mode-btn { font-size:12px; padding:6px 10px; }
       .control-bar {
-        position:fixed; left:16px; top:50%; transform:translateY(-50%);
+        position:fixed; right:16px; top:50%; transform:translateY(-50%);
         flex-direction:column; padding:16px; border-top:none;
         border-radius:40px; background:rgba(0,0,0,0.5); backdrop-filter:blur(20px);
         width:auto; height:auto; box-shadow:0 0 20px rgba(0,0,0,0.5);
         margin-top:0; border:0.5px solid rgba(255,255,255,0.2);
       }
-      .capture-btn {
-        margin-top:0; width:64px; height:64px;
-      }
+      .capture-btn { margin-top:0; width:64px; height:64px; }
       .capture-btn .inner-dot { width:54px; height:54px; }
-      .info { bottom:20px; font-size:10px; }
-      .install-btn { right:auto; left:20px; bottom:20px; }
+      .install-banner { bottom:20px; padding:12px 24px; font-size:16px; }
+      .debug-status { top:5px; left:5px; font-size:10px; }
     }
   </style>
 </head>
@@ -120,17 +159,43 @@
   <div class="canvas-wrapper">
     <canvas id="mainCanvas"></canvas>
   </div>
-  <div class="mode-selector">
-    <button id="photoModeBtn" class="mode-btn active">📷 Foto</button>
-    <button id="videoModeBtn" class="mode-btn">🎥 Vídeo</button>
+
+  <!-- Badges superiores -->
+  <div class="top-badges">
+    <div class="badge-left">
+      <span class="badge hdr">HDR</span>
+      <span class="badge ai">AI</span>
+    </div>
+    <div class="badge-right">
+      <div class="exp-scale">
+        <span>⬇️</span>
+        <span class="active-exp">●</span>
+        <span>⬆️</span>
+      </div>
+    </div>
   </div>
+
+  <!-- Seletor de modo -->
+  <div class="mode-selector">
+    <button class="mode-btn" data-mode="square">⬛ QUADRADO</button>
+    <button class="mode-btn active" data-mode="photo">📷 FOTO</button>
+    <button class="mode-btn" data-mode="video">🎥 VÍDEO</button>
+    <button class="mode-btn" data-mode="slow">🐢 CÂMERA LENTA</button>
+  </div>
+
+  <!-- Barra de controle -->
   <div class="control-bar">
     <button class="capture-btn" id="captureBtn">
       <div class="inner-dot"></div>
     </button>
   </div>
-  <div class="info" id="infoMsg">📷 Modo Foto • Toque para capturar</div>
-  <button id="installBtn" class="install-btn">📲 Instalar</button>
+
+  <!-- Botão de instalação (flutuante) -->
+  <button id="installBtn" class="install-banner">
+    <span class="icon">📲</span> Instalar App
+  </button>
+
+  <div class="debug-status" id="debugStatus">Iniciando...</div>
 </div>
 <div id="toast" class="toast">✅ Pronto!</div>
 
@@ -171,6 +236,14 @@
     let currentStream = null;
     let cameraReady = false;
 
+    const debugEl = document.getElementById('debugStatus');
+    const installBtn = document.getElementById('installBtn');
+
+    function setDebug(msg) {
+      debugEl.textContent = msg;
+      console.log(msg);
+    }
+
     // --- Suporte a codecs ---
     function getSupportedMimeType() {
       const types = ['video/mp4', 'video/webm', 'video/x-matroska'];
@@ -180,11 +253,10 @@
       return null;
     }
 
-    // --- Inicializar câmera com fallback ---
+    // --- Inicializar câmera ---
     async function initCamera() {
-      const infoMsg = document.getElementById('infoMsg');
+      setDebug('Solicitando câmera...');
       try {
-        // Tenta câmera traseira com resolução ideal
         let constraints = {
           video: { facingMode: { exact: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }
         };
@@ -193,14 +265,14 @@
         videoElem.srcObject = stream;
         await videoElem.play();
         cameraReady = true;
+        setDebug('Câmera OK');
         resizeCanvasAndDraw();
         startDrawLoop();
-        infoMsg.innerHTML = "📷 Câmera ativa";
         return true;
       } catch (err) {
-        console.warn("Falha ao acessar câmera traseira, tentando qualquer uma...", err);
+        console.warn("Falha na traseira, tentando qualquer câmera...", err);
+        setDebug('Fallback câmera');
         try {
-          // Fallback: qualquer câmera
           let stream = await navigator.mediaDevices.getUserMedia({ video: true });
           currentStream = stream;
           videoElem.srcObject = stream;
@@ -208,17 +280,16 @@
           cameraReady = true;
           resizeCanvasAndDraw();
           startDrawLoop();
-          infoMsg.innerHTML = "📷 Câmera ativa (fallback)";
+          setDebug('Câmera fallback OK');
           return true;
         } catch(e) {
-          console.error("Erro fatal ao acessar câmera:", e);
-          infoMsg.innerHTML = "❌ Erro: " + e.message;
-          // Exibe um fundo colorido para depuração
-          ctx.fillStyle = "#333";
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          console.error("Erro fatal:", e);
+          setDebug('ERRO: ' + e.message);
+          ctx.fillStyle = "#222";
+          ctx.fillRect(0, 0, canvas.width || 400, canvas.height || 400);
           ctx.fillStyle = "#fff";
           ctx.font = "20px sans-serif";
-          ctx.fillText("Câmera indisponível", canvas.width/2-100, canvas.height/2);
+          ctx.fillText("Câmera indisponível", (canvas.width/2)-100, canvas.height/2);
           return false;
         }
       }
@@ -227,7 +298,6 @@
     // --- Redimensiona e desenha ---
     function resizeCanvasAndDraw() {
       if (!videoElem.videoWidth || !videoElem.videoHeight) {
-        // Se ainda não tem vídeo, aguarda
         setTimeout(resizeCanvasAndDraw, 100);
         return;
       }
@@ -251,13 +321,12 @@
     // --- Desenho principal ---
     function drawFrame() {
       if (!canvas.width || !canvas.height) return;
-      if (videoElem.readyState >= 2 && cameraReady) {
+      if (videoElem.readyState >= 2 && cameraReady && videoElem.videoWidth > 0) {
         ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
       } else {
-        // Fundo preto com mensagem
         ctx.fillStyle = "#111";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = "#fff";
+        ctx.fillStyle = "#888";
         ctx.font = "18px sans-serif";
         ctx.fillText("Aguardando câmera...", canvas.width/2-80, canvas.height/2);
       }
@@ -268,6 +337,7 @@
     // --- Grade profissional ---
     function drawProfessionalGrid() {
       const w = canvas.width, h = canvas.height;
+      if (w === 0 || h === 0) return;
       ctx.save();
       ctx.strokeStyle = GRID_COLOR;
       ctx.lineWidth = LINE_WIDTH;
@@ -301,14 +371,14 @@
       ctx.restore();
     }
 
-    // --- Régua transparente e visível ---
+    // --- Régua (transparente) ---
     function drawRuler() {
       const w = canvas.width;
       const h = canvas.height;
+      if (w === 0 || h === 0) return;
       const rulerHeight = Math.max(MIN_RULER_HEIGHT, h * RULER_HEIGHT_RATIO);
       const rulerY = h - rulerHeight;
 
-      // Fundo levemente escuro para contraste
       ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
       ctx.fillRect(0, rulerY, w, rulerHeight);
       ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
@@ -494,33 +564,29 @@
         showToast("Aguardando câmera...");
         return;
       }
-      if (currentMode === 'photo') capturePhoto();
-      else {
+      if (currentMode === 'photo' || currentMode === 'square') {
+        capturePhoto();
+      } else if (currentMode === 'video') {
         if (isRecording) stopRecording();
         else startRecording();
+      } else if (currentMode === 'slow') {
+        showToast("Modo Câmera Lenta (simulado) - use Vídeo");
       }
     }
 
     // --- Alternar modo ---
     function setMode(mode) {
       currentMode = mode;
-      const photoBtn = document.getElementById('photoModeBtn');
-      const videoBtn = document.getElementById('videoModeBtn');
+      document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+      });
       const captureBtn = document.getElementById('captureBtn');
-      const infoMsg = document.getElementById('infoMsg');
-
-      if (mode === 'photo') {
-        photoBtn.classList.add('active');
-        videoBtn.classList.remove('active');
-        captureBtn.classList.remove('video-mode');
-        infoMsg.innerHTML = "📷 Modo Foto • Toque para capturar";
-      } else {
-        videoBtn.classList.add('active');
-        photoBtn.classList.remove('active');
+      if (mode === 'video') {
         captureBtn.classList.add('video-mode');
-        infoMsg.innerHTML = "🎥 Modo Vídeo • Toque para iniciar/parar gravação";
+      } else {
+        captureBtn.classList.remove('video-mode');
       }
-      if (isRecording && mode === 'photo') stopRecording();
+      if (isRecording && mode !== 'video') stopRecording();
       updateButtonUI();
     }
 
@@ -533,21 +599,31 @@
       }
     }
 
-    // --- Instalação PWA ---
+    // --- INSTALAÇÃO DO PWA (botão em destaque) ---
     let deferredPrompt = null;
+
+    // Quando o navegador detectar que o PWA pode ser instalado, mostra o botão
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
-      const installBtn = document.getElementById('installBtn');
-      installBtn.style.display = 'block';
+      installBtn.style.display = 'flex'; // exibe o botão
       installBtn.onclick = async () => {
         if (deferredPrompt) {
           deferredPrompt.prompt();
           const { outcome } = await deferredPrompt.userChoice;
-          if (outcome === 'accepted') installBtn.style.display = 'none';
+          if (outcome === 'accepted') {
+            installBtn.style.display = 'none';
+            showToast('✅ App instalado com sucesso!');
+          }
           deferredPrompt = null;
         }
       };
+    });
+
+    // Se o app já foi instalado, oculta o botão
+    window.addEventListener('appinstalled', () => {
+      installBtn.style.display = 'none';
+      showToast('📲 App instalado!');
     });
 
     // --- Service Worker ---
@@ -559,14 +635,15 @@
 
     // --- Eventos ---
     document.getElementById('captureBtn').addEventListener('click', onMainCapture);
-    document.getElementById('photoModeBtn').addEventListener('click', () => setMode('photo'));
-    document.getElementById('videoModeBtn').addEventListener('click', () => setMode('video'));
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => setMode(btn.dataset.mode));
+    });
 
     function showToast(msg) {
       const toast = document.getElementById('toast');
       toast.textContent = msg;
       toast.style.opacity = '1';
-      setTimeout(() => toast.style.opacity = '0', 2500);
+      setTimeout(() => toast.style.opacity = '0', 3000);
     }
 
     // --- Iniciar ---
