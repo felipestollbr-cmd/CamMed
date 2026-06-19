@@ -29,12 +29,12 @@
 
     /* ---------- BADGES SUPERIORES (HDR, AI, escala) ---------- */
     .top-badges {
-      position:absolute; top:45px; left:16px; right:16px;
+      position:absolute; top:12px; left:16px; right:16px;
       display:flex; justify-content:space-between; align-items:center;
       z-index:20; pointer-events:none;
     }
     .badge-left, .badge-right {
-      display:flex; gap:12px; align-items:center;
+      display:flex; gap:10px; align-items:center;
     }
     .badge {
       background:rgba(0,0,0,0.6); backdrop-filter:blur(8px);
@@ -53,17 +53,17 @@
     }
     .exp-scale .active-exp { color:#ffcc00; }
 
-    /* ---------- SELETOR DE MODO (estilo referência) ---------- */
+    /* ---------- SELETOR DE MODO (AGORA NO TOPO) ---------- */
     .mode-selector {
-      position:absolute; bottom:100px; left:0; right:0;
+      position:absolute; top:60px; left:0; right:0;
       display:flex; justify-content:center; gap:8px;
-      background:rgba(0,0,0,0.5); backdrop-filter:blur(20px);
-      padding:8px 16px; border-radius:40px; width:fit-content;
+      background:rgba(0,0,0,0.4); backdrop-filter:blur(20px);
+      padding:6px 16px; border-radius:40px; width:fit-content;
       margin:0 auto; z-index:20;
     }
     .mode-btn {
       background:transparent; border:none; color:rgba(255,255,255,0.5);
-      font-size:13px; font-weight:600; padding:6px 14px; border-radius:30px;
+      font-size:13px; font-weight:600; padding:4px 14px; border-radius:30px;
       transition:0.2s; cursor:pointer; white-space:nowrap;
     }
     .mode-btn.active {
@@ -73,9 +73,9 @@
 
     /* ---------- BARRA DE CONTROLE (botão de captura) ---------- */
     .control-bar {
-      background:rgba(0,0,0,0.5); backdrop-filter:blur(20px);
+      background:rgba(0,0,0,0.4); backdrop-filter:blur(20px);
       display:flex; justify-content:center; align-items:center;
-      padding:16px 0 30px; border-top:0.5px solid rgba(255,255,255,0.2);
+      padding:16px 0 30px; border-top:0.5px solid rgba(255,255,255,0.15);
       position:relative; z-index:10;
     }
     .capture-btn {
@@ -97,7 +97,7 @@
       100% { transform:scale(1); opacity:1; }
     }
 
-    /* ---------- BOTÃO DE INSTALAÇÃO (flutuante, destaque) ---------- */
+    /* ---------- BOTÃO DE INSTALAÇÃO (flutuante) ---------- */
     .install-banner {
       position:fixed; bottom:30px; left:50%; transform:translateX(-50%);
       background:linear-gradient(135deg, #34c759, #28a745);
@@ -105,15 +105,13 @@
       padding:14px 32px; border-radius:60px;
       border:none; box-shadow:0 8px 30px rgba(52,199,89,0.5);
       z-index:1000; cursor:pointer;
-      display:none; /* oculto por padrão, será mostrado via JS */
+      display:none;
       align-items:center; gap:12px;
       transition:transform 0.2s, box-shadow 0.2s;
       font-family: -apple-system, 'Segoe UI', sans-serif;
     }
     .install-banner:active { transform:translateX(-50%) scale(0.96); }
-    .install-banner .icon {
-      font-size:24px;
-    }
+    .install-banner .icon { font-size:24px; }
 
     .toast {
       position:fixed; bottom:120px; left:50%; transform:translateX(-50%);
@@ -122,8 +120,8 @@
       transition:opacity 0.3s; white-space:nowrap;
     }
     .debug-status {
-      position:absolute; top:10px; left:10px; color:#0f0; font-size:11px;
-      background:rgba(0,0,0,0.7); padding:2px 8px; border-radius:4px; z-index:30;
+      position:absolute; top:10px; left:10px; color:#0f0; font-size:10px;
+      background:rgba(0,0,0,0.6); padding:2px 8px; border-radius:4px; z-index:30;
       font-family:monospace; pointer-events:none;
     }
 
@@ -131,7 +129,7 @@
     @media (orientation: landscape) {
       .app-container { flex-direction:row; }
       .canvas-wrapper { flex:1; }
-      .top-badges { top:10px; left:10px; right:10px; }
+      .top-badges { top:8px; left:12px; right:12px; }
       .badge { font-size:10px; padding:2px 10px; }
       .mode-selector {
         position:fixed; top:50%; right:20px; transform:translateY(-50%);
@@ -145,12 +143,12 @@
         flex-direction:column; padding:16px; border-top:none;
         border-radius:40px; background:rgba(0,0,0,0.5); backdrop-filter:blur(20px);
         width:auto; height:auto; box-shadow:0 0 20px rgba(0,0,0,0.5);
-        margin-top:0; border:0.5px solid rgba(255,255,255,0.2);
+        margin-top:0; border:0.5px solid rgba(255,255,255,0.15);
       }
       .capture-btn { margin-top:0; width:64px; height:64px; }
       .capture-btn .inner-dot { width:54px; height:54px; }
       .install-banner { bottom:20px; padding:12px 24px; font-size:16px; }
-      .debug-status { top:5px; left:5px; font-size:10px; }
+      .debug-status { top:4px; left:4px; font-size:9px; }
     }
   </style>
 </head>
@@ -175,7 +173,7 @@
     </div>
   </div>
 
-  <!-- Seletor de modo -->
+  <!-- Seletor de modo (agora no topo) -->
   <div class="mode-selector">
     <button class="mode-btn" data-mode="square">⬛ QUADRADO</button>
     <button class="mode-btn active" data-mode="photo">📷 FOTO</button>
@@ -183,14 +181,14 @@
     <button class="mode-btn" data-mode="slow">🐢 CÂMERA LENTA</button>
   </div>
 
-  <!-- Barra de controle -->
+  <!-- Barra de controle (inferior) -->
   <div class="control-bar">
     <button class="capture-btn" id="captureBtn">
       <div class="inner-dot"></div>
     </button>
   </div>
 
-  <!-- Botão de instalação (flutuante) -->
+  <!-- Botão de instalação -->
   <button id="installBtn" class="install-banner">
     <span class="icon">📲</span> Instalar App
   </button>
@@ -212,7 +210,7 @@
     const ctx = canvas.getContext('2d');
     let animationId = null;
 
-    // --- Configurações da régua ---
+    // --- Configurações da régua (ajustada para não ser coberta) ---
     const RULER_HEIGHT_RATIO = 0.10;
     const MIN_RULER_HEIGHT = 80;
     const TICK_MM_RATIO = 0.20;
@@ -221,7 +219,6 @@
     const FONT_SIZE_RATIO = 0.030;
     const CM_TO_SHOW = 20;
 
-    // --- Grade ---
     const GRID_COLOR = `rgba(255, 255, 255, 0.65)`;
     const LINE_WIDTH = 1.2;
     const FOCUS_CIRCLE_RADIUS = 60;
@@ -244,7 +241,6 @@
       console.log(msg);
     }
 
-    // --- Suporte a codecs ---
     function getSupportedMimeType() {
       const types = ['video/mp4', 'video/webm', 'video/x-matroska'];
       for (let type of types) {
@@ -295,7 +291,6 @@
       }
     }
 
-    // --- Redimensiona e desenha ---
     function resizeCanvasAndDraw() {
       if (!videoElem.videoWidth || !videoElem.videoHeight) {
         setTimeout(resizeCanvasAndDraw, 100);
@@ -318,7 +313,6 @@
       }, 200);
     });
 
-    // --- Desenho principal ---
     function drawFrame() {
       if (!canvas.width || !canvas.height) return;
       if (videoElem.readyState >= 2 && cameraReady && videoElem.videoWidth > 0) {
@@ -334,7 +328,6 @@
       drawRuler();
     }
 
-    // --- Grade profissional ---
     function drawProfessionalGrid() {
       const w = canvas.width, h = canvas.height;
       if (w === 0 || h === 0) return;
@@ -371,7 +364,6 @@
       ctx.restore();
     }
 
-    // --- Régua (transparente) ---
     function drawRuler() {
       const w = canvas.width;
       const h = canvas.height;
@@ -558,7 +550,6 @@
       updateButtonUI();
     }
 
-    // --- Ação do botão central ---
     function onMainCapture() {
       if (!cameraReady) {
         showToast("Aguardando câmera...");
@@ -574,7 +565,6 @@
       }
     }
 
-    // --- Alternar modo ---
     function setMode(mode) {
       currentMode = mode;
       document.querySelectorAll('.mode-btn').forEach(btn => {
@@ -599,14 +589,12 @@
       }
     }
 
-    // --- INSTALAÇÃO DO PWA (botão em destaque) ---
+    // --- Instalação PWA ---
     let deferredPrompt = null;
-
-    // Quando o navegador detectar que o PWA pode ser instalado, mostra o botão
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
-      installBtn.style.display = 'flex'; // exibe o botão
+      installBtn.style.display = 'flex';
       installBtn.onclick = async () => {
         if (deferredPrompt) {
           deferredPrompt.prompt();
@@ -620,7 +608,6 @@
       };
     });
 
-    // Se o app já foi instalado, oculta o botão
     window.addEventListener('appinstalled', () => {
       installBtn.style.display = 'none';
       showToast('📲 App instalado!');
@@ -646,7 +633,6 @@
       setTimeout(() => toast.style.opacity = '0', 3000);
     }
 
-    // --- Iniciar ---
     initCamera();
     setMode('photo');
   })();
