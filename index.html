@@ -27,9 +27,9 @@
       object-fit:cover; cursor:crosshair;
     }
 
-    /* ---------- SELETOR DE MODO (sempre no topo, sem badges) ---------- */
+    /* ---------- SELETOR DE MODO (abaixado 2 cm) ---------- */
     .mode-selector {
-      position:absolute; top:20px; left:0; right:0;
+      position:absolute; top:80px; left:0; right:0;
       display:flex; justify-content:center; gap:8px;
       background:rgba(0,0,0,0.4); backdrop-filter:blur(20px);
       padding:6px 16px; border-radius:40px; width:fit-content;
@@ -104,7 +104,7 @@
       .canvas-wrapper { flex:1; }
 
       .mode-selector {
-        position:absolute; top:16px; left:0; right:0;
+        position:absolute; top:70px; left:0; right:0;
         flex-direction:row; justify-content:center; gap:8px;
         width:fit-content; margin:0 auto;
         background:rgba(0,0,0,0.4);
@@ -170,13 +170,13 @@
     const ctx = canvas.getContext('2d');
     let animationId = null;
 
-    // --- Configurações da régua (altura aumentada) ---
-    const RULER_HEIGHT_RATIO = 0.15;      // 15% da altura (maior)
+    // --- Configurações da régua (mais alta para visibilidade) ---
+    const RULER_HEIGHT_RATIO = 0.15;      // 15% da altura (aumentado)
     const MIN_RULER_HEIGHT = 100;          // mínimo 100px
     const TICK_MM_RATIO = 0.20;
     const TICK_5MM_RATIO = 0.35;
     const TICK_CM_RATIO = 0.55;
-    const FONT_SIZE_RATIO = 0.032;         // fonte um pouco maior
+    const FONT_SIZE_RATIO = 0.030;
     const CM_TO_SHOW = 20;
 
     const GRID_COLOR = `rgba(255, 255, 255, 0.65)`;
@@ -328,7 +328,7 @@
       const w = canvas.width;
       const h = canvas.height;
       if (w === 0 || h === 0) return;
-      // Régua mais alta
+      // Régua mais alta (15% da altura, mínimo 100px)
       const rulerHeight = Math.max(MIN_RULER_HEIGHT, h * RULER_HEIGHT_RATIO);
       const rulerY = h - rulerHeight;
 
@@ -371,7 +371,7 @@
         if (isCm) {
           const cmValue = mm / 10;
           let label = (cmValue === 0) ? "0" : (cmValue === 1 ? "1cm" : cmValue.toString());
-          ctx.font = `bold ${Math.max(14, w * FONT_SIZE_RATIO)}px 'Segoe UI', sans-serif`;
+          ctx.font = `bold ${Math.max(12, w * FONT_SIZE_RATIO)}px 'Segoe UI', sans-serif`;
           ctx.fillStyle = "#fff";
           const tw = ctx.measureText(label).width;
           let tx = x - tw/2;
@@ -382,13 +382,13 @@
       }
 
       ctx.shadowBlur = 0;
-      ctx.font = `italic ${Math.max(12, w * 0.02)}px 'Segoe UI'`;
+      ctx.font = `italic ${Math.max(10, w * 0.018)}px 'Segoe UI'`;
       ctx.fillStyle = "rgba(255,255,255,0.8)";
       const tilibra = "tilibra";
       const tw = ctx.measureText(tilibra).width;
       ctx.fillText(tilibra, w - tw - 14, rulerY + rulerHeight - 6);
 
-      ctx.font = `${Math.max(12, w * 0.018)}px monospace`;
+      ctx.font = `${Math.max(10, w * 0.016)}px monospace`;
       ctx.fillStyle = "rgba(255,255,255,0.6)";
       ctx.fillText("mm", 8, rulerY + rulerHeight - 6);
       ctx.fillStyle = "#fff";
@@ -475,8 +475,7 @@
         mediaRecorder.start(1000);
         isRecording = true;
         updateButtonUI();
-        const modeLabel = currentMode === 'slow' ? 'Câmera Lenta' : 'Vídeo';
-        showToast(`🔴 Gravando ${modeLabel}...`);
+        showToast("🔴 Gravando vídeo...");
       } catch (err) {
         console.error(err);
         showToast("Erro: " + err.message);
@@ -512,7 +511,6 @@
       updateButtonUI();
     }
 
-    // --- Ação do botão central ---
     function onMainCapture() {
       if (!cameraReady) {
         showToast("Aguardando câmera...");
@@ -526,7 +524,6 @@
       }
     }
 
-    // --- Alternar modo ---
     function setMode(mode) {
       currentMode = mode;
       document.querySelectorAll('.mode-btn').forEach(btn => {
