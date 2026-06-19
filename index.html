@@ -53,7 +53,7 @@
     }
     .exp-scale .active-exp { color:#ffcc00; }
 
-    /* ---------- SELETOR DE MODO (AGORA NO TOPO) ---------- */
+    /* ---------- SELETOR DE MODO (sempre no topo) ---------- */
     .mode-selector {
       position:absolute; top:60px; left:0; right:0;
       display:flex; justify-content:center; gap:8px;
@@ -97,7 +97,7 @@
       100% { transform:scale(1); opacity:1; }
     }
 
-    /* ---------- BOTÃO DE INSTALAÇÃO (flutuante) ---------- */
+    /* ---------- BOTÃO DE INSTALAÇÃO ---------- */
     .install-banner {
       position:fixed; bottom:30px; left:50%; transform:translateX(-50%);
       background:linear-gradient(135deg, #34c759, #28a745);
@@ -108,7 +108,6 @@
       display:none;
       align-items:center; gap:12px;
       transition:transform 0.2s, box-shadow 0.2s;
-      font-family: -apple-system, 'Segoe UI', sans-serif;
     }
     .install-banner:active { transform:translateX(-50%) scale(0.96); }
     .install-banner .icon { font-size:24px; }
@@ -129,15 +128,22 @@
     @media (orientation: landscape) {
       .app-container { flex-direction:row; }
       .canvas-wrapper { flex:1; }
+
       .top-badges { top:8px; left:12px; right:12px; }
       .badge { font-size:10px; padding:2px 10px; }
+
+      /* Seletor de modo permanece no topo (horizontal) */
       .mode-selector {
-        position:fixed; top:50%; right:20px; transform:translateY(-50%);
-        flex-direction:column; gap:8px; background:rgba(0,0,0,0.5);
-        padding:12px 8px; border-radius:40px; width:auto;
-        margin:0; left:auto;
+        position:absolute; top:52px; left:0; right:0;
+        flex-direction:row; justify-content:center; gap:8px;
+        width:fit-content; margin:0 auto;
+        background:rgba(0,0,0,0.4);
+        padding:6px 16px; border-radius:40px;
+        transform:none;
       }
-      .mode-btn { font-size:12px; padding:6px 10px; }
+      .mode-btn { font-size:12px; padding:4px 12px; }
+
+      /* Barra de controle vai para a lateral direita */
       .control-bar {
         position:fixed; right:16px; top:50%; transform:translateY(-50%);
         flex-direction:column; padding:16px; border-top:none;
@@ -147,6 +153,7 @@
       }
       .capture-btn { margin-top:0; width:64px; height:64px; }
       .capture-btn .inner-dot { width:54px; height:54px; }
+
       .install-banner { bottom:20px; padding:12px 24px; font-size:16px; }
       .debug-status { top:4px; left:4px; font-size:9px; }
     }
@@ -158,7 +165,7 @@
     <canvas id="mainCanvas"></canvas>
   </div>
 
-  <!-- Badges superiores -->
+  <!-- Badges -->
   <div class="top-badges">
     <div class="badge-left">
       <span class="badge hdr">HDR</span>
@@ -173,22 +180,21 @@
     </div>
   </div>
 
-  <!-- Seletor de modo (agora no topo) -->
+  <!-- Seletor de modo (apenas FOTO, VÍDEO, CÂMERA LENTA) -->
   <div class="mode-selector">
-    <button class="mode-btn" data-mode="square">⬛ QUADRADO</button>
     <button class="mode-btn active" data-mode="photo">📷 FOTO</button>
     <button class="mode-btn" data-mode="video">🎥 VÍDEO</button>
     <button class="mode-btn" data-mode="slow">🐢 CÂMERA LENTA</button>
   </div>
 
-  <!-- Barra de controle (inferior) -->
+  <!-- Barra de controle -->
   <div class="control-bar">
     <button class="capture-btn" id="captureBtn">
       <div class="inner-dot"></div>
     </button>
   </div>
 
-  <!-- Botão de instalação -->
+  <!-- Botão instalação -->
   <button id="installBtn" class="install-banner">
     <span class="icon">📲</span> Instalar App
   </button>
@@ -210,9 +216,9 @@
     const ctx = canvas.getContext('2d');
     let animationId = null;
 
-    // --- Configurações da régua (ajustada para não ser coberta) ---
-    const RULER_HEIGHT_RATIO = 0.10;
-    const MIN_RULER_HEIGHT = 80;
+    // --- Configurações da régua (mais alta para visibilidade) ---
+    const RULER_HEIGHT_RATIO = 0.12;      // 12% da altura
+    const MIN_RULER_HEIGHT = 90;           // mínimo 90px
     const TICK_MM_RATIO = 0.20;
     const TICK_5MM_RATIO = 0.35;
     const TICK_CM_RATIO = 0.55;
@@ -225,7 +231,7 @@
     const SCALE_Y_POS = 40;
     const SCALE_VALUES = [-3, -2, -1, 0, 1, 2, 3];
 
-    let currentMode = 'photo';
+    let currentMode = 'photo'; // 'photo', 'video', 'slow'
     let isRecording = false;
     let mediaRecorder = null;
     let recordedChunks = [];
@@ -249,7 +255,7 @@
       return null;
     }
 
-    // --- Inicializar câmera ---
+    // --- Câmera ---
     async function initCamera() {
       setDebug('Solicitando câmera...');
       try {
@@ -368,6 +374,7 @@
       const w = canvas.width;
       const h = canvas.height;
       if (w === 0 || h === 0) return;
+      // Régua mais alta
       const rulerHeight = Math.max(MIN_RULER_HEIGHT, h * RULER_HEIGHT_RATIO);
       const rulerY = h - rulerHeight;
 
@@ -482,7 +489,7 @@
       showToast("📁 Imagem baixada (não foi possível salvar no rolo)");
     }
 
-    // --- Vídeo ---
+    // --- Vídeo (usado tanto para VÍDEO quanto para CÂMERA LENTA, mas com labels diferentes) ---
     async function startRecording() {
       if (isRecording) return;
       try {
@@ -550,46 +557,46 @@
       updateButtonUI();
     }
 
+    // --- Ação do botão central ---
     function onMainCapture() {
       if (!cameraReady) {
         showToast("Aguardando câmera...");
         return;
       }
-      if (currentMode === 'photo' || currentMode === 'square') {
+      if (currentMode === 'photo') {
         capturePhoto();
-      } else if (currentMode === 'video') {
+      } else if (currentMode === 'video' || currentMode === 'slow') {
         if (isRecording) stopRecording();
         else startRecording();
-      } else if (currentMode === 'slow') {
-        showToast("Modo Câmera Lenta (simulado) - use Vídeo");
       }
     }
 
+    // --- Alternar modo ---
     function setMode(mode) {
       currentMode = mode;
       document.querySelectorAll('.mode-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.mode === mode);
       });
       const captureBtn = document.getElementById('captureBtn');
-      if (mode === 'video') {
+      if (mode === 'video' || mode === 'slow') {
         captureBtn.classList.add('video-mode');
       } else {
         captureBtn.classList.remove('video-mode');
       }
-      if (isRecording && mode !== 'video') stopRecording();
+      if (isRecording && mode !== 'video' && mode !== 'slow') stopRecording();
       updateButtonUI();
     }
 
     function updateButtonUI() {
       const captureBtn = document.getElementById('captureBtn');
-      if (currentMode === 'video' && isRecording) {
+      if ((currentMode === 'video' || currentMode === 'slow') && isRecording) {
         captureBtn.classList.add('recording');
       } else {
         captureBtn.classList.remove('recording');
       }
     }
 
-    // --- Instalação PWA ---
+    // --- Instalação ---
     let deferredPrompt = null;
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
