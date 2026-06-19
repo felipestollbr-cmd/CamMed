@@ -50,14 +50,13 @@
       left: 0;
       width: 100%;
       height: 100%;
-      /* Preenche a tela inteira, cortando as bordas se necessário (como a câmera nativa) */
       object-fit: cover;
       cursor: crosshair;
     }
     /* Seletor de modo no topo */
     .mode-selector {
       position: absolute;
-      top: 50px;
+      top: 40px;
       left: 0;
       right: 0;
       display: flex;
@@ -65,7 +64,7 @@
       gap: 20px;
       background: rgba(0,0,0,0.5);
       backdrop-filter: blur(20px);
-      padding: 8px 16px;
+      padding: 6px 16px;
       border-radius: 40px;
       width: fit-content;
       margin: 0 auto;
@@ -75,9 +74,9 @@
       background: transparent;
       border: none;
       color: rgba(255,255,255,0.6);
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 600;
-      padding: 6px 20px;
+      padding: 4px 16px;
       border-radius: 30px;
       transition: 0.2s;
       cursor: pointer;
@@ -210,10 +209,14 @@
     const ctx = canvas.getContext('2d');
     let animationId = null;
 
-    // --- Configurações visuais ---
-    const PX_PER_CM = 30;
-    const PX_PER_MM = PX_PER_CM / 10;
-    const RULER_HEIGHT = 60;
+    // --- Configurações da régua (agora proporcionais) ---
+    const RULER_HEIGHT_RATIO = 0.08;  // 8% da altura do canvas
+    const TICK_MM_RATIO = 0.15;       // altura do traço de 1mm em relação à altura da régua
+    const TICK_5MM_RATIO = 0.30;
+    const TICK_CM_RATIO = 0.50;
+    const FONT_SIZE_RATIO = 0.025;    // tamanho da fonte relativo à largura
+
+    // Grade fixa (proporcional)
     const GRID_COLOR = `rgba(255, 255, 255, 0.65)`;
     const LINE_WIDTH = 1.2;
     const FOCUS_CIRCLE_RADIUS = 60;
@@ -227,7 +230,7 @@
     let canvasStream = null;
     let currentStream = null;
 
-    // --- Suporte a codecs: priorizar MP4 ---
+    // --- Suporte a codecs ---
     function getSupportedMimeType() {
       const types = ['video/mp4', 'video/webm', 'video/x-matroska'];
       for (let type of types) {
@@ -236,7 +239,7 @@
       return null;
     }
 
-    // --- Inicializar câmera (traseira) ---
+    // --- Inicializar câmera ---
     async function initCamera() {
       if (currentStream) currentStream.getTracks().forEach(track => track.stop());
       try {
@@ -266,21 +269,15 @@
       }
     }
 
-    // --- Redimensiona o canvas para ocupar toda a tela (cover) ---
+    // --- Redimensiona o canvas ---
     function resizeCanvas() {
       if (!videoElem.videoWidth || !videoElem.videoHeight) return;
-      const container = canvas.parentElement;
-      const cw = container.clientWidth;
-      const ch = container.clientHeight;
-      // O canvas ocupará toda a área com object-fit: cover no CSS,
-      // mas precisamos definir o tamanho real do canvas para desenhar.
-      // Vamos usar a resolução do vídeo como referência.
+      // Usamos a resolução do vídeo para o canvas
       canvas.width = videoElem.videoWidth;
       canvas.height = videoElem.videoHeight;
-      // O CSS cuidará de exibir cobrindo a tela.
       canvas.style.width = '100%';
       canvas.style.height = '100%';
-      canvas.style.objectFit = 'cover'; // já definido no CSS, mas reforçamos
+      canvas.style.objectFit = 'cover';
       canvas.style.position = 'absolute';
       canvas.style.top = '0';
       canvas.style.left = '0';
@@ -296,16 +293,15 @@
       }, 50);
     });
 
-    // --- Desenho do frame (vídeo + grade + régua) ---
+    // --- Desenho do frame ---
     function drawFrame() {
       if (!videoElem.videoWidth || !canvas.width) return;
-      // Desenha o vídeo ocupando todo o canvas (sem distorção, pois o canvas tem a mesma proporção do vídeo)
       ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
       drawProfessionalGrid();
       drawRuler();
     }
 
-    // --- Grade profissional (regra dos terços, foco, escala) ---
+    // --- Grade profissional ---
     function drawProfessionalGrid() {
       const w = canvas.width, h = canvas.height;
       ctx.save();
@@ -341,50 +337,83 @@
       ctx.restore();
     }
 
-    // --- Régua transparente estilo Tilibra ---
+    // --- Régua transparente com marcações proporcionais ---
     function drawRuler() {
       const w = canvas.width;
-      const rulerY = canvas.height - RULER_HEIGHT;
-      ctx.fillStyle = "rgba(255, 248, 225, 0.85)";
-      ctx.fillRect(0, rulerY, w, RULER_HEIGHT);
-      ctx.strokeStyle = "#aaa";
-      ctx.beginPath(); ctx.moveTo(0, rulerY); ctx.lineTo(w, rulerY); ctx.stroke();
-      const totalMM = Math.floor(w / PX_PER_MM);
-      ctx.fillStyle = "#222";
-      ctx.font = "11px 'Courier New'";
-      ctx.strokeStyle = "#222";
-      for (let mm = 0; mm <= totalMM; mm++) {
-        const x = mm * PX_PER_MM;
+      const h = canvas.height;
+      const rulerHeight = Math.max(60, h * RULER_HEIGHT_RATIO); // mínimo 60px
+      const rulerY = h - rulerHeight;
+
+      // Fundo transparente (apenas um leve tom para contraste)
+      ctx.fillStyle = "rgba(255, 248, 225, 0.2)";
+      ctx.fillRect(0, rulerY, w, rulerHeight);
+      // Borda superior sutil
+      ctx.strokeStyle = "rgba(255,255,255,0.3)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, rulerY);
+      ctx.lineTo(w, rulerY);
+      ctx.stroke();
+
+      // Definição da escala: queremos mostrar cerca de 20 cm na régua (ajustável)
+      const cmToShow = 20; // 20 centímetros
+      const pxPerCm = w / cmToShow;
+      const pxPerMm = pxPerCm / 10;
+
+      ctx.fillStyle = "#fff";
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 1.5;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+
+      // Desenha marcações de mm
+      for (let mm = 0; mm < cmToShow * 10; mm++) {
+        const x = mm * pxPerMm;
         if (x > w) break;
         const isCm = (mm % 10 === 0);
         const is5mm = (mm % 5 === 0 && !isCm);
-        let tickHeight = 8;
-        if (is5mm) tickHeight = 14;
-        if (isCm) tickHeight = 22;
-        ctx.beginPath(); ctx.moveTo(x, rulerY+RULER_HEIGHT-2); ctx.lineTo(x, rulerY+RULER_HEIGHT-tickHeight); ctx.stroke();
+        let tickHeight = rulerHeight * TICK_MM_RATIO;
+        if (is5mm) tickHeight = rulerHeight * TICK_5MM_RATIO;
+        if (isCm) tickHeight = rulerHeight * TICK_CM_RATIO;
+
+        ctx.beginPath();
+        ctx.moveTo(x, rulerY + rulerHeight - 2);
+        ctx.lineTo(x, rulerY + rulerHeight - tickHeight);
+        ctx.stroke();
+
         if (isCm) {
-          let label = mm/10 === 0 ? "0" : (mm/10 === 1 ? "1cm" : (mm/10).toString());
-          ctx.fillStyle = "#111";
-          ctx.font = "bold 11px 'Segoe UI'";
+          const cmValue = mm / 10;
+          let label = (cmValue === 0) ? "0" : (cmValue === 1 ? "1cm" : cmValue.toString());
+          ctx.font = `bold ${Math.max(10, w * FONT_SIZE_RATIO)}px 'Segoe UI', sans-serif`;
+          ctx.fillStyle = "#fff";
           const tw = ctx.measureText(label).width;
           let tx = x - tw/2;
           if (tx < 2) tx = 2;
-          if (tx+tw > w-5) tx = w-tw-2;
-          ctx.fillText(label, tx, rulerY+RULER_HEIGHT-tickHeight-3);
+          if (tx + tw > w - 5) tx = w - tw - 2;
+          ctx.fillText(label, tx, rulerY + rulerHeight - tickHeight - 4);
         }
       }
-      ctx.font = "italic 9px 'Segoe UI'";
-      ctx.fillStyle = "#3c3c3c";
+
+      // Texto "tilibra" e "mm" / "cm"
+      ctx.font = `italic ${Math.max(8, w * 0.015)}px 'Segoe UI'`;
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
       const tilibra = "tilibra";
       const tw = ctx.measureText(tilibra).width;
-      ctx.fillText(tilibra, w - tw - 12, rulerY+RULER_HEIGHT-8);
-      ctx.font = "8px monospace";
-      ctx.fillStyle = "#5a5a5a";
-      ctx.fillText("mm", 6, rulerY+RULER_HEIGHT-6);
-      ctx.fillStyle = "#222";
-      ctx.fillText("cm", 6, rulerY+14);
-      ctx.beginPath(); ctx.moveTo(0, rulerY+RULER_HEIGHT-2); ctx.lineTo(3, rulerY+RULER_HEIGHT-10);
-      ctx.moveTo(w-1, rulerY+RULER_HEIGHT-2); ctx.lineTo(w-4, rulerY+RULER_HEIGHT-10); ctx.stroke();
+      ctx.fillText(tilibra, w - tw - 12, rulerY + rulerHeight - 8);
+
+      ctx.font = `${Math.max(8, w * 0.014)}px monospace`;
+      ctx.fillStyle = "rgba(255,255,255,0.5)";
+      ctx.fillText("mm", 6, rulerY + rulerHeight - 6);
+      ctx.fillStyle = "#fff";
+      ctx.fillText("cm", 6, rulerY + 16);
+
+      // Pequenos traços nas extremidades
+      ctx.beginPath();
+      ctx.moveTo(0, rulerY + rulerHeight-2);
+      ctx.lineTo(3, rulerY + rulerHeight-8);
+      ctx.moveTo(w-1, rulerY + rulerHeight-2);
+      ctx.lineTo(w-4, rulerY + rulerHeight-8);
+      ctx.stroke();
     }
 
     function startDrawLoop() {
@@ -396,24 +425,18 @@
       frame();
     }
 
-    // --- Captura de foto (compartilhar para salvar no rolo) ---
+    // --- Captura de foto (compartilhar) ---
     async function capturePhoto() {
       drawFrame();
       canvas.toBlob(async (blob) => {
         if (!blob) { showToast("Erro ao gerar imagem"); return; }
         const file = new File([blob], `camed_${Date.now()}.png`, { type: 'image/png' });
-        // Tenta compartilhar (no iOS/Android permite salvar na galeria)
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
             await navigator.share({ title: 'CamMed', files: [file] });
             showToast("✅ Foto salva no rolo da câmera");
           } catch(e) {
-            if (e.name !== 'AbortError') {
-              // Se o usuário cancelou, não faz nada; se foi erro, tenta download
-              downloadFallback(blob);
-            } else {
-              showToast("Compartilhamento cancelado");
-            }
+            if (e.name !== 'AbortError') downloadFallback(blob);
           }
         } else {
           downloadFallback(blob);
@@ -431,7 +454,7 @@
       showToast("📁 Imagem baixada (não foi possível salvar no rolo)");
     }
 
-    // --- Gravação de vídeo com saída MP4 (se suportado) ---
+    // --- Vídeo ---
     async function startRecording() {
       if (isRecording) return;
       try {
@@ -450,32 +473,13 @@
           if (mimeType.includes('mp4')) extension = 'mp4';
           else if (mimeType.includes('webm')) extension = 'webm';
           const filename = `camed_video_${Date.now()}.${extension}`;
-          // Salvar usando share ou download
-          if (navigator.canShare && navigator.canShare({ files: [new File([blob], filename, { type: mimeType })] })) {
-            navigator.share({
-              title: 'CamMed',
-              files: [new File([blob], filename, { type: mimeType })]
-            }).then(() => {
-              showToast("🎥 Vídeo salvo no rolo da câmera");
-            }).catch(() => {
-              // Fallback para download
-              const a = document.createElement('a');
-              const url = URL.createObjectURL(blob);
-              a.href = url;
-              a.download = filename;
-              a.click();
-              URL.revokeObjectURL(url);
-              showToast("🎥 Vídeo baixado (não foi possível salvar no rolo)");
-            });
+          const file = new File([blob], filename, { type: mimeType });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            navigator.share({ title: 'CamMed', files: [file] })
+              .then(() => showToast("🎥 Vídeo salvo no rolo da câmera"))
+              .catch(() => downloadVideoFallback(blob, filename));
           } else {
-            // Fallback download
-            const a = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            a.href = url;
-            a.download = filename;
-            a.click();
-            URL.revokeObjectURL(url);
-            showToast("🎥 Vídeo baixado");
+            downloadVideoFallback(blob, filename);
           }
           cleanupRecording();
         };
@@ -488,6 +492,16 @@
         showToast("Erro: " + err.message);
         cleanupRecording();
       }
+    }
+
+    function downloadVideoFallback(blob, filename) {
+      const a = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast("🎥 Vídeo baixado");
     }
 
     function stopRecording() {
@@ -510,9 +524,8 @@
 
     // --- Ação do botão central ---
     function onMainCapture() {
-      if (currentMode === 'photo') {
-        capturePhoto();
-      } else {
+      if (currentMode === 'photo') capturePhoto();
+      else {
         if (isRecording) stopRecording();
         else startRecording();
       }
@@ -563,7 +576,7 @@
       };
     });
 
-    // --- Registro do Service Worker (offline) ---
+    // --- Service Worker ---
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js')
         .then(() => console.log('SW registrado'))
