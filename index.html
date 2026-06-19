@@ -27,7 +27,6 @@
       object-fit:cover; cursor:crosshair;
     }
 
-    /* ---------- SELETOR DE MODO (apenas FOTO e VÍDEO) ---------- */
     .mode-selector {
       position:absolute; top:80px; left:0; right:0;
       display:flex; justify-content:center; gap:8px;
@@ -45,7 +44,6 @@
     }
     .mode-btn:active { transform:scale(0.95); }
 
-    /* ---------- BARRA DE CONTROLE (botão de captura) ---------- */
     .control-bar {
       background:rgba(0,0,0,0.4); backdrop-filter:blur(20px);
       display:flex; justify-content:center; align-items:center;
@@ -71,7 +69,6 @@
       100% { transform:scale(1); opacity:1; }
     }
 
-    /* ---------- BOTÃO DE INSTALAÇÃO ---------- */
     .install-banner {
       position:fixed; bottom:30px; left:50%; transform:translateX(-50%);
       background:linear-gradient(135deg, #34c759, #28a745);
@@ -98,11 +95,9 @@
       font-family:monospace; pointer-events:none;
     }
 
-    /* ---------- MODO PAISAGEM (HORIZONTAL) ---------- */
     @media (orientation: landscape) {
       .app-container { flex-direction:row; }
       .canvas-wrapper { flex:1; }
-
       .mode-selector {
         position:absolute; top:45px; left:0; right:0;
         flex-direction:row; justify-content:center; gap:8px;
@@ -112,7 +107,6 @@
         transform:none;
       }
       .mode-btn { font-size:12px; padding:4px 12px; }
-
       .control-bar {
         position:fixed; right:16px; top:50%; transform:translateY(-50%);
         flex-direction:column; padding:16px; border-top:none;
@@ -122,7 +116,6 @@
       }
       .capture-btn { margin-top:0; width:64px; height:64px; }
       .capture-btn .inner-dot { width:54px; height:54px; }
-
       .install-banner { bottom:20px; padding:12px 24px; font-size:16px; }
       .debug-status { top:4px; left:4px; font-size:9px; }
     }
@@ -134,20 +127,18 @@
     <canvas id="mainCanvas"></canvas>
   </div>
 
-  <!-- Seletor de modo (apenas FOTO e VÍDEO) -->
+  <!-- Apenas FOTO e VÍDEO -->
   <div class="mode-selector">
     <button class="mode-btn active" data-mode="photo">📷 FOTO</button>
     <button class="mode-btn" data-mode="video">🎥 VÍDEO</button>
   </div>
 
-  <!-- Barra de controle -->
   <div class="control-bar">
     <button class="capture-btn" id="captureBtn">
       <div class="inner-dot"></div>
     </button>
   </div>
 
-  <!-- Botão instalação -->
   <button id="installBtn" class="install-banner">
     <span class="icon">📲</span> Instalar App
   </button>
@@ -169,7 +160,7 @@
     const ctx = canvas.getContext('2d');
     let animationId = null;
 
-    // --- Configurações da régua (alta para visibilidade) ---
+    // --- Régua (15% da altura, mínimo 130px) ---
     const RULER_HEIGHT_RATIO = 0.15;
     const MIN_RULER_HEIGHT = 130;
     const TICK_MM_RATIO = 0.20;
@@ -546,7 +537,7 @@
       }
     }
 
-    // --- Instalação ---
+    // --- Instalação PWA ---
     let deferredPrompt = null;
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
@@ -570,10 +561,26 @@
       showToast('📲 App instalado!');
     });
 
-    // --- Service Worker ---
+    // --- Service Worker (com registro forçado) ---
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js')
-        .then(() => console.log('SW registrado'))
+      navigator.serviceWorker.register('./sw.js', { scope: './' })
+        .then(reg => {
+          console.log('SW registrado com sucesso');
+          // Força a ativação imediata se houver um SW em espera
+          if (reg.waiting) {
+            reg.waiting.postMessage('skipWaiting');
+          }
+          // Recarrega a página se o SW foi atualizado
+          reg.addEventListener('updatefound', () => {
+            const newSW = reg.installing;
+            newSW.addEventListener('statechange', () => {
+              if (newSW.state === 'activated') {
+                console.log('SW atualizado, recarregando...');
+                window.location.reload();
+              }
+            });
+          });
+        })
         .catch(err => console.warn('SW falhou:', err));
     }
 
@@ -590,6 +597,7 @@
       setTimeout(() => toast.style.opacity = '0', 3000);
     }
 
+    // --- Iniciar ---
     initCamera();
     setMode('photo');
   })();
