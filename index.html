@@ -15,7 +15,9 @@
       box-sizing: border-box;
       user-select: none;
     }
-    body {
+    html, body {
+      width: 100%;
+      height: 100%;
       background: #000;
       overflow: hidden;
       font-family: -apple-system, 'Segoe UI', 'Roboto', sans-serif;
@@ -40,17 +42,24 @@
       align-items: center;
     }
     canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
+      display: block;
       width: 100%;
       height: 100%;
-      object-fit: contain;
+      object-fit: contain;  /* mantém proporção em portrait */
       cursor: crosshair;
+      background: #000;
     }
+
+    /* Modo paisagem: ocupar toda a tela sem barras */
+    @media (orientation: landscape) {
+      canvas {
+        object-fit: fill;  /* estica para preencher totalmente */
+      }
+    }
+
     .mode-selector {
       position: absolute;
-      top: 50px;
+      top: 40px;
       left: 0;
       right: 0;
       display: flex;
@@ -87,6 +96,8 @@
       align-items: center;
       padding: 16px 0 30px;
       border-top: 0.5px solid rgba(255,255,255,0.2);
+      position: relative;
+      z-index: 10;
     }
     .capture-btn {
       width: 76px;
@@ -152,6 +163,7 @@
       border-radius: 20px;
       backdrop-filter: blur(10px);
       pointer-events: none;
+      z-index: 5;
     }
     .toast {
       position: fixed;
@@ -192,6 +204,7 @@
 
 <script>
   (function() {
+    // --- Elementos ---
     const videoElem = document.createElement('video');
     videoElem.setAttribute('autoplay', '');
     videoElem.setAttribute('playsinline', '');
@@ -202,7 +215,7 @@
     const ctx = canvas.getContext('2d');
     let animationId = null;
 
-    // Configurações visuais
+    // --- Configurações visuais ---
     const PX_PER_CM = 30;
     const PX_PER_MM = PX_PER_CM / 10;
     const RULER_HEIGHT = 60;
@@ -212,25 +225,21 @@
     const SCALE_Y_POS = 40;
     const SCALE_VALUES = [-3, -2, -1, 0, 1, 2, 3];
 
-    let currentMode = 'photo';
+    // --- Estado do app ---
+    let currentMode = 'photo'; // 'photo' ou 'video'
     let isRecording = false;
     let mediaRecorder = null;
     let recordedChunks = [];
     let canvasStream = null;
     let currentStream = null;
 
-    // --- Suporte a codecs: priorizar MP4 ---
-    function getSupportedMimeType() {
-      const types = ['video/mp4', 'video/webm', 'video/x-matroska'];
-      for (let type of types) {
-        if (MediaRecorder.isTypeSupported(type)) return type;
-      }
-      return null;
-    }
-
+    // --- Inicializar câmera (traseira) ---
     async function initCamera() {
-      if (currentStream) currentStream.getTracks().forEach(track => track.stop());
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+      }
       try {
+        // Tenta câmera traseira com alta resolução
         let constraints = {
           video: { facingMode: { exact: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }
         };
@@ -242,6 +251,7 @@
         startDrawLoop();
         return true;
       } catch (err) {
+        console.warn("Câmera traseira falhou, tentando qualquer câmera", err);
         try {
           let stream = await navigator.mediaDevices.getUserMedia({ video: true });
           currentStream = stream;
@@ -251,36 +261,56 @@
           startDrawLoop();
           return true;
         } catch(e) {
+          console.error("Erro fatal na câmera", e);
           document.getElementById('infoMsg').innerHTML = "❌ Sem acesso à câmera.";
           return false;
         }
       }
     }
 
+    // --- Ajuste do canvas para preencher a tela (landscape = fill, portrait = contain) ---
     function resizeCanvasAndDraw() {
       if (!videoElem.videoWidth || !videoElem.videoHeight) return;
       const container = canvas.parentElement;
-      const cw = container.clientWidth, ch = container.clientHeight;
-      const aspect = videoElem.videoWidth / videoElem.videoHeight;
-      let canvasWidth = cw, canvasHeight = cw / aspect;
-      if (canvasHeight > ch) {
-        canvasHeight = ch;
-        canvasWidth = ch * aspect;
-      }
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
+      const videoAspect = videoElem.videoWidth / videoElem.videoHeight;
+      
+      let canvasWidth, canvasHeight;
+      // Se for landscape (largura > altura), preencher totalmente (object-fit: fill)
+      // Mas com canvas, aplicamos as dimensões para ocupar 100% do container.
+      canvasWidth = containerWidth;
+      canvasHeight = containerHeight;
+      
+      // Para manter a proporção em portrait, usamos object-fit: contain via CSS.
+      // Para landscape, queremos fill, então definimos as dimensões exatas do container.
+      // O canvas será desenhado com essas dimensões, e a imagem do vídeo será esticada para preencher.
+      // Isso faz com que a grade e régua também se ajustem.
       canvas.width = canvasWidth;
       canvas.height = canvasHeight;
-      canvas.style.width = `${canvasWidth}px`;
-      canvas.style.height = `${canvasHeight}px`;
-      canvas.style.left = `${(cw - canvasWidth)/2}px`;
-      canvas.style.top = `${(ch - canvasHeight)/2}px`;
+      canvas.style.width = canvasWidth + 'px';
+      canvas.style.height = canvasHeight + 'px';
+      canvas.style.left = '0';
+      canvas.style.top = '0';
+      
+      // Se estiver em portrait, manter a proporção com fundo preto (object-fit: contain)
+      // Para landscape, preencher (object-fit: fill) - já definido via CSS.
+      // Agora desenhamos o frame imediatamente.
       if (videoElem.readyState >= 2) drawFrame();
     }
 
-    window.addEventListener('resize', () => resizeCanvasAndDraw());
-    window.addEventListener('orientationchange', () => setTimeout(resizeCanvasAndDraw, 50));
+    // Atualiza quando a orientação mudar
+    window.addEventListener('resize', () => {
+      resizeCanvasAndDraw();
+    });
+    window.addEventListener('orientationchange', () => {
+      setTimeout(resizeCanvasAndDraw, 50);
+    });
 
+    // --- Desenho do frame (vídeo + grade + régua) ---
     function drawFrame() {
       if (!videoElem.videoWidth || !canvas.width) return;
+      // Desenha o vídeo esticado para preencher o canvas (já que o canvas tem o tamanho do container)
       ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
       drawProfessionalGrid();
       drawRuler();
@@ -375,18 +405,30 @@
       frame();
     }
 
-    // --- Foto ---
+    // --- Foto: captura e compartilha (salva no rolo) ---
     async function capturePhoto() {
       drawFrame();
       canvas.toBlob(async (blob) => {
         if (!blob) { showToast("Erro ao gerar imagem"); return; }
         const file = new File([blob], `camed_${Date.now()}.png`, { type: 'image/png' });
+        // Tenta salvar via share (iOS/Android)
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
             await navigator.share({ title: 'CamMed', files: [file] });
             showToast("✅ Foto salva no rolo");
-          } catch(e) { if(e.name !== 'AbortError') downloadFallback(blob); }
-        } else { downloadFallback(blob); }
+            // Não faz nada, volta ao estado de captura
+          } catch(e) {
+            if (e.name !== 'AbortError') {
+              // Se o usuário cancelou, não mostra erro
+              console.warn("Share cancelado ou falhou:", e);
+            }
+            // Fallback para download
+            downloadFallback(blob);
+          }
+        } else {
+          downloadFallback(blob);
+        }
+        // Volta ao estado de prontidão (já está pronto)
       }, 'image/png');
     }
 
@@ -397,10 +439,18 @@
       a.download = `camed_${Date.now()}.png`;
       a.click();
       URL.revokeObjectURL(url);
-      showToast("📁 Imagem baixada");
+      showToast("📁 Imagem baixada (não foi possível salvar no rolo)");
     }
 
-    // --- Vídeo com prioridade MP4 ---
+    // --- Vídeo: gravação com MediaRecorder (prioriza MP4) ---
+    function getSupportedMimeType() {
+      const types = ['video/mp4', 'video/webm', 'video/x-matroska'];
+      for (let type of types) {
+        if (MediaRecorder.isTypeSupported(type)) return type;
+      }
+      return null;
+    }
+
     async function startRecording() {
       if (isRecording) return;
       try {
@@ -415,24 +465,15 @@
         };
         mediaRecorder.onstop = () => {
           const blob = new Blob(recordedChunks, { type: mimeType });
-          // Define a extensão do arquivo: .mp4 se o mimeType incluir 'mp4', senão .webm
-          let extension = 'webm';
-          if (mimeType.includes('mp4')) extension = 'mp4';
-          else if (mimeType.includes('webm')) extension = 'webm';
-          const filename = `camed_video_${Date.now()}.${extension}`;
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = filename;
-          a.click();
-          URL.revokeObjectURL(url);
-          showToast(`🎥 Vídeo salvo como ${extension.toUpperCase()}`);
+          // Salvar o vídeo
+          saveVideo(blob, mimeType);
           cleanupRecording();
+          // Volta ao estado de prontidão
         };
         mediaRecorder.start(1000);
         isRecording = true;
         updateButtonUI();
-        showToast("🔴 Gravando vídeo em " + (mimeType.includes('mp4') ? 'MP4' : 'WebM') + "...");
+        showToast("🔴 Gravando vídeo...");
       } catch (err) {
         console.error(err);
         showToast("Erro: " + err.message);
@@ -448,6 +489,37 @@
       }
     }
 
+    function saveVideo(blob, mimeType) {
+      const extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
+      const filename = `camed_video_${Date.now()}.${extension}`;
+      const file = new File([blob], filename, { type: mimeType });
+      
+      // Tenta compartilhar (salvar no rolo via iOS/Android)
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ title: 'CamMed', files: [file] })
+          .then(() => showToast("✅ Vídeo salvo no rolo"))
+          .catch(err => {
+            if (err.name !== 'AbortError') {
+              console.warn("Share falhou:", err);
+              // Fallback download
+              downloadVideoFallback(blob, filename);
+            }
+          });
+      } else {
+        downloadVideoFallback(blob, filename);
+      }
+    }
+
+    function downloadVideoFallback(blob, filename) {
+      const a = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast("📁 Vídeo baixado (não foi possível salvar no rolo)");
+    }
+
     function cleanupRecording() {
       if (canvasStream) {
         canvasStream.getTracks().forEach(t => t.stop());
@@ -458,14 +530,20 @@
       updateButtonUI();
     }
 
+    // --- Ação do botão central ---
     function onMainCapture() {
-      if (currentMode === 'photo') capturePhoto();
-      else {
-        if (isRecording) stopRecording();
-        else startRecording();
+      if (currentMode === 'photo') {
+        capturePhoto();
+      } else {
+        if (isRecording) {
+          stopRecording();
+        } else {
+          startRecording();
+        }
       }
     }
 
+    // --- Alternar modo ---
     function setMode(mode) {
       currentMode = mode;
       const photoBtn = document.getElementById('photoModeBtn');
@@ -481,19 +559,24 @@
         videoBtn.classList.add('active');
         photoBtn.classList.remove('active');
         captureBtn.classList.add('video-mode');
-        infoMsg.innerHTML = "🎥 Modo Vídeo • Toque para iniciar/parar gravação (MP4)";
+        infoMsg.innerHTML = "🎥 Modo Vídeo • Toque para iniciar/parar gravação";
       }
-      if (isRecording && mode === 'photo') stopRecording();
+      if (isRecording && mode === 'photo') {
+        stopRecording();
+      }
       updateButtonUI();
     }
 
     function updateButtonUI() {
       const captureBtn = document.getElementById('captureBtn');
-      if (currentMode === 'video' && isRecording) captureBtn.classList.add('recording');
-      else captureBtn.classList.remove('recording');
+      if (currentMode === 'video' && isRecording) {
+        captureBtn.classList.add('recording');
+      } else {
+        captureBtn.classList.remove('recording');
+      }
     }
 
-    // Instalação PWA
+    // --- Instalação PWA ---
     let deferredPrompt = null;
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
@@ -510,6 +593,7 @@
       };
     });
 
+    // --- Event Listeners ---
     document.getElementById('captureBtn').addEventListener('click', onMainCapture);
     document.getElementById('photoModeBtn').addEventListener('click', () => setMode('photo'));
     document.getElementById('videoModeBtn').addEventListener('click', () => setMode('video'));
@@ -521,6 +605,7 @@
       setTimeout(() => toast.style.opacity = '0', 2000);
     }
 
+    // Inicializar
     initCamera();
     setMode('photo');
   })();
