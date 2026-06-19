@@ -27,7 +27,7 @@
       object-fit:cover; cursor:crosshair;
     }
 
-    /* ---------- SELETOR DE MODO (abaixado 2 cm) ---------- */
+    /* ---------- SELETOR DE MODO (apenas FOTO e VÍDEO) ---------- */
     .mode-selector {
       position:absolute; top:80px; left:0; right:0;
       display:flex; justify-content:center; gap:8px;
@@ -104,7 +104,7 @@
       .canvas-wrapper { flex:1; }
 
       .mode-selector {
-        position:absolute; top:70px; left:0; right:0;
+        position:absolute; top:45px; left:0; right:0;
         flex-direction:row; justify-content:center; gap:8px;
         width:fit-content; margin:0 auto;
         background:rgba(0,0,0,0.4);
@@ -134,11 +134,10 @@
     <canvas id="mainCanvas"></canvas>
   </div>
 
-  <!-- Seletor de modo (apenas FOTO, VÍDEO, CÂMERA LENTA) -->
+  <!-- Seletor de modo (apenas FOTO e VÍDEO) -->
   <div class="mode-selector">
     <button class="mode-btn active" data-mode="photo">📷 FOTO</button>
     <button class="mode-btn" data-mode="video">🎥 VÍDEO</button>
-    <button class="mode-btn" data-mode="slow">🐢 CÂMERA LENTA</button>
   </div>
 
   <!-- Barra de controle -->
@@ -170,9 +169,9 @@
     const ctx = canvas.getContext('2d');
     let animationId = null;
 
-    // --- Configurações da régua (mais alta para visibilidade) ---
-    const RULER_HEIGHT_RATIO = 0.15;      // 15% da altura (aumentado)
-    const MIN_RULER_HEIGHT = 100;          // mínimo 100px
+    // --- Configurações da régua (alta para visibilidade) ---
+    const RULER_HEIGHT_RATIO = 0.15;
+    const MIN_RULER_HEIGHT = 130;
     const TICK_MM_RATIO = 0.20;
     const TICK_5MM_RATIO = 0.35;
     const TICK_CM_RATIO = 0.55;
@@ -328,7 +327,6 @@
       const w = canvas.width;
       const h = canvas.height;
       if (w === 0 || h === 0) return;
-      // Régua mais alta (15% da altura, mínimo 100px)
       const rulerHeight = Math.max(MIN_RULER_HEIGHT, h * RULER_HEIGHT_RATIO);
       const rulerY = h - rulerHeight;
 
@@ -443,7 +441,7 @@
       showToast("📁 Imagem baixada (não foi possível salvar no rolo)");
     }
 
-    // --- Vídeo (usado tanto para VÍDEO quanto para CÂMERA LENTA) ---
+    // --- Vídeo ---
     async function startRecording() {
       if (isRecording) return;
       try {
@@ -518,7 +516,7 @@
       }
       if (currentMode === 'photo') {
         capturePhoto();
-      } else if (currentMode === 'video' || currentMode === 'slow') {
+      } else if (currentMode === 'video') {
         if (isRecording) stopRecording();
         else startRecording();
       }
@@ -530,18 +528,18 @@
         btn.classList.toggle('active', btn.dataset.mode === mode);
       });
       const captureBtn = document.getElementById('captureBtn');
-      if (mode === 'video' || mode === 'slow') {
+      if (mode === 'video') {
         captureBtn.classList.add('video-mode');
       } else {
         captureBtn.classList.remove('video-mode');
       }
-      if (isRecording && mode !== 'video' && mode !== 'slow') stopRecording();
+      if (isRecording && mode !== 'video') stopRecording();
       updateButtonUI();
     }
 
     function updateButtonUI() {
       const captureBtn = document.getElementById('captureBtn');
-      if ((currentMode === 'video' || currentMode === 'slow') && isRecording) {
+      if (currentMode === 'video' && isRecording) {
         captureBtn.classList.add('recording');
       } else {
         captureBtn.classList.remove('recording');
