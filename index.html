@@ -26,7 +26,8 @@
       position:absolute; top:0; left:0; width:100%; height:100%;
       object-fit:cover; cursor:crosshair;
     }
-    /* Seletor de modo (sempre no topo) */
+
+    /* ---------- ESTILO PADRÃO (RETRATO) ---------- */
     .mode-selector {
       position:absolute; top:40px; left:0; right:0;
       display:flex; justify-content:center; gap:20px;
@@ -41,65 +42,18 @@
     }
     .mode-btn.active { background:rgba(255,255,255,0.3); color:white; }
 
-    /* Barra de controle: por padrão (retrato) fica embaixo */
     .control-bar {
       background:rgba(0,0,0,0.5); backdrop-filter:blur(20px);
       display:flex; justify-content:center; align-items:center;
       padding:16px 0 30px; border-top:0.5px solid rgba(255,255,255,0.2);
-      transition: all 0.3s ease;
-      position:relative;
-      z-index:10;
+      position:relative; z-index:10;
     }
-    /* Em paisagem, a barra vai para a esquerda */
-    @media (orientation: landscape) {
-      .app-container {
-        flex-direction: row; /* muda para linha */
-      }
-      .control-bar {
-        flex-direction: column; /* botão fica na vertical */
-        padding:20px 10px;
-        border-top: none;
-        border-right: 0.5px solid rgba(255,255,255,0.2);
-        width: 100px; /* largura fixa para a barra lateral */
-        height: 100%;
-        justify-content: center;
-        background: rgba(0,0,0,0.6);
-        position: absolute;
-        left: 0;
-        top: 0;
-        z-index: 30;
-      }
-      .canvas-wrapper {
-        margin-left: 100px; /* desloca o canvas para não ser coberto */
-        width: calc(100% - 100px);
-      }
-      .capture-btn {
-        margin-top: 0; /* remove o deslocamento vertical */
-        width: 70px;
-        height: 70px;
-      }
-      .capture-btn .inner-dot {
-        width: 58px;
-        height: 58px;
-      }
-      /* Ajuste do seletor de modo para não conflitar */
-      .mode-selector {
-        top: 20px;
-        z-index: 40;
-      }
-      .info {
-        bottom: 20px;
-        z-index: 40;
-      }
-    }
-
     .capture-btn {
       width:76px; height:76px; border-radius:50%; background:white;
       border:none; outline:none; cursor:pointer;
       box-shadow:0 0 0 4px rgba(255,255,255,0.3), 0 0 0 8px rgba(0,255,180,0.2);
       transition:transform 0.1s ease; display:flex; align-items:center; justify-content:center;
       margin-top:-20px;
-      flex-shrink:0;
     }
     .capture-btn:active { transform:scale(0.94); }
     .capture-btn .inner-dot {
@@ -112,22 +66,52 @@
       50% { transform:scale(1.1); opacity:0.8; }
       100% { transform:scale(1); opacity:1; }
     }
+
     .install-btn {
       position:absolute; right:20px; bottom:20px; background:#34c759;
       border:none; border-radius:30px; padding:8px 16px; color:white;
-      font-weight:600; font-size:14px; cursor:pointer; z-index:50; display:none;
+      font-weight:600; font-size:14px; cursor:pointer; z-index:20; display:none;
     }
     .info {
       position:absolute; bottom:100px; left:0; right:0; text-align:center;
       color:rgba(255,255,255,0.6); font-size:12px; background:rgba(0,0,0,0.4);
       padding:4px 8px; width:fit-content; margin:0 auto; border-radius:20px;
-      backdrop-filter:blur(10px); pointer-events:none; z-index:10;
+      backdrop-filter:blur(10px); pointer-events:none;
+      z-index:5;
     }
     .toast {
       position:fixed; bottom:120px; left:50%; transform:translateX(-50%);
       background:rgba(0,0,0,0.8); color:#0f0; padding:8px 16px; border-radius:30px;
       font-size:14px; z-index:1000; pointer-events:none; opacity:0;
       transition:opacity 0.3s; white-space:nowrap;
+    }
+
+    /* ---------- MODO PAISAGEM (HORIZONTAL) ---------- */
+    @media (orientation: landscape) {
+      .app-container { flex-direction:row; }
+      .canvas-wrapper { flex:1; }
+      /* Seletor de modo vira um menu vertical à esquerda */
+      .mode-selector {
+        position:fixed; top:50%; left:20px; transform:translateY(-50%);
+        flex-direction:column; gap:12px; background:rgba(0,0,0,0.5);
+        padding:12px 8px; border-radius:40px; width:auto;
+        margin:0; right:auto;
+      }
+      .mode-btn { font-size:14px; padding:6px 12px; }
+      /* Barra de controle fica à esquerda, vertical */
+      .control-bar {
+        position:fixed; left:16px; top:50%; transform:translateY(-50%);
+        flex-direction:column; padding:16px; border-top:none;
+        border-radius:40px; background:rgba(0,0,0,0.5); backdrop-filter:blur(20px);
+        width:auto; height:auto; box-shadow:0 0 20px rgba(0,0,0,0.5);
+        margin-top:0; border:0.5px solid rgba(255,255,255,0.2);
+      }
+      .capture-btn {
+        margin-top:0; width:64px; height:64px;
+      }
+      .capture-btn .inner-dot { width:54px; height:54px; }
+      .info { bottom:20px; font-size:10px; }
+      .install-btn { right:auto; left:20px; bottom:20px; }
     }
   </style>
 </head>
@@ -172,7 +156,7 @@
     const FONT_SIZE_RATIO = 0.030;
     const CM_TO_SHOW = 20;
 
-    // --- Grade fixa ---
+    // --- Grade ---
     const GRID_COLOR = `rgba(255, 255, 255, 0.65)`;
     const LINE_WIDTH = 1.2;
     const FOCUS_CIRCLE_RADIUS = 60;
@@ -185,6 +169,7 @@
     let recordedChunks = [];
     let canvasStream = null;
     let currentStream = null;
+    let cameraReady = false;
 
     // --- Suporte a codecs ---
     function getSupportedMimeType() {
@@ -195,521 +180,11 @@
       return null;
     }
 
-    // --- Inicializar câmera ---
+    // --- Inicializar câmera com fallback ---
     async function initCamera() {
-      if (currentStream) currentStream.getTracks().forEach(track => track.stop());
-      try {
-        let constraints = {
-          video: { facingMode: { exact: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }
-        };
-        let stream = await navigator.mediaDevices.getUserMedia(constraints);
-        currentStream = stream;
-        videoElem.srcObject = stream;
-        await videoElem.play();
-        resizeCanvas();
-        startDrawLoop();
-        return true;
-      } catch (err) {
-        try {
-          let stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          currentStream = stream;
-          videoElem.srcObject = stream;
-          await videoElem.play();
-          resizeCanvas();
-          startDrawLoop();
-          return true;
-        } catch(e) {
-          document.getElementById('infoMsg').innerHTML = "❌ Sem acesso à câmera.";
-          return false;
-        }
-      }
-    }
-
-    function resizeCanvas() {
-      if (!videoElem.videoWidth || !videoElem.videoHeight) return;
-      canvas.width = videoElem.videoWidth;
-      canvas.height = videoElem.videoHeight;
-      canvas.style.width = '100%';
-      canvas.style.height = '100%';
-      canvas.style.objectFit = 'cover';
-      canvas.style.position = 'absolute';
-      canvas.style.top = '0';
-      canvas.style.left = '0';
-      drawFrame();
-    }
-
-    window.addEventListener('resize', () => {
-      if (videoElem.videoWidth) resizeCanvas();
-    });
-    window.addEventListener('orientationchange', () => {
-      setTimeout(() => {
-        if (videoElem.videoWidth) resizeCanvas();
-      }, 50);
-    });
-
-    function drawFrame() {
-      if (!videoElem.videoWidth || !canvas.width) return;
-      ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
-      drawProfessionalGrid();
-      drawRuler();
-    }
-
-    function drawProfessionalGrid() {
-      const w = canvas.width, h = canvas.height;
-      ctx.save();
-      ctx.strokeStyle = GRID_COLOR;
-      ctx.lineWidth = LINE_WIDTH;
-      const x1 = w/3, x2 = 2*w/3, y1 = h/3, y2 = 2*h/3;
-      ctx.beginPath(); ctx.moveTo(x1,0); ctx.lineTo(x1,h); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x2,0); ctx.lineTo(x2,h); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0,y1); ctx.lineTo(w,y1); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0,y2); ctx.lineTo(w,y2); ctx.stroke();
-      const cx = w/2, cy = h/2;
-      ctx.beginPath(); ctx.arc(cx, cy, FOCUS_CIRCLE_RADIUS, 0, 2*Math.PI); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(cx-8,cy); ctx.lineTo(cx+8,cy); ctx.moveTo(cx,cy-8); ctx.lineTo(cx,cy+8); ctx.stroke();
-      ctx.beginPath(); ctx.arc(cx, cy, FOCUS_CIRCLE_RADIUS*0.4, 0, 2*Math.PI); ctx.stroke();
-      const scaleWidth = 180, startX = w/2 - scaleWidth/2, scaleY = SCALE_Y_POS;
-      const tickSpacing = scaleWidth / (SCALE_VALUES.length-1);
-      ctx.beginPath(); ctx.moveTo(startX, scaleY); ctx.lineTo(startX+scaleWidth, scaleY); ctx.stroke();
-      ctx.font = "12px 'Courier New'";
-      ctx.fillStyle = GRID_COLOR;
-      ctx.textAlign = "center";
-      for (let i=0; i<SCALE_VALUES.length; i++) {
-        const xTick = startX + i*tickSpacing;
-        ctx.beginPath(); ctx.moveTo(xTick, scaleY-5); ctx.lineTo(xTick, scaleY+5); ctx.stroke();
-        let label = SCALE_VALUES[i];
-        if (label > 0) label = "+"+label;
-        ctx.fillText(label, xTick, scaleY-8);
-      }
-      ctx.beginPath(); ctx.moveTo(w/2, scaleY-10); ctx.lineTo(w/2-4, scaleY-2); ctx.lineTo(w/2+4, scaleY-2); ctx.fillStyle = `rgba(255,200,100,0.9)`; ctx.fill();
-      [[x1,y1],[x1,y2],[x2,y1],[x2,y2]].forEach(([cx,cy]) => {
-        ctx.beginPath(); ctx.rect(cx-12, cy-8, 24, 16); ctx.stroke();
-        ctx.beginPath(); ctx.rect(cx-8, cy-12, 16, 24); ctx.stroke();
-      });
-      ctx.restore();
-    }
-
-    function drawRuler() {
-      const w = canvas.width;
-      const h = canvas.height;
-      const rulerHeight = Math.max(MIN_RULER_HEIGHT, h * RULER_HEIGHT_RATIO);
-      const rulerY = h - rulerHeight;
-
-      ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
-      ctx.fillRect(0, rulerY, w, rulerHeight);
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(0, rulerY);
-      ctx.lineTo(w, rulerY);
-      ctx.stroke();
-
-      const pxPerCm = w / CM_TO_SHOW;
-      const pxPerMm = pxPerCm / 10;
-
-      ctx.shadowColor = 'rgba(0,0,0,0.7)';
-      ctx.shadowBlur = 4;
-      ctx.shadowOffsetX = 1;
-      ctx.shadowOffsetY = 1;
-
-      ctx.fillStyle = "#fff";
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 2;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-
-      for (let mm = 0; mm < CM_TO_SHOW * 10; mm++) {
-        const x = mm * pxPerMm;
-        if (x > w) break;
-        const isCm = (mm % 10 === 0);
-        const is5mm = (mm % 5 === 0 && !isCm);
-        let tickHeight = rulerHeight * TICK_MM_RATIO;
-        if (is5mm) tickHeight = rulerHeight * TICK_5MM_RATIO;
-        if (isCm) tickHeight = rulerHeight * TICK_CM_RATIO;
-
-        ctx.beginPath();
-        ctx.moveTo(x, rulerY + rulerHeight - 2);
-        ctx.lineTo(x, rulerY + rulerHeight - tickHeight);
-        ctx.stroke();
-
-        if (isCm) {
-          const cmValue = mm / 10;
-          let label = (cmValue === 0) ? "0" : (cmValue === 1 ? "1cm" : cmValue.toString());
-          ctx.font = `bold ${Math.max(12, w * FONT_SIZE_RATIO)}px 'Segoe UI', sans-serif`;
-          ctx.fillStyle = "#fff";
-          const tw = ctx.measureText(label).width;
-          let tx = x - tw/2;
-          if (tx < 4) tx = 4;
-          if (tx + tw > w - 4) tx = w - tw - 4;
-          ctx.fillText(label, tx, rulerY + rulerHeight - tickHeight - 4);
-        }
-      }
-
-      ctx.shadowBlur = 0;
-      ctx.font = `italic ${Math.max(10, w * 0.018)}px 'Segoe UI'`;
-      ctx.fillStyle = "rgba(255,255,255,0.8)";
-      const tilibra = "tilibra";
-      const tw = ctx.measureText(tilibra).width;
-      ctx.fillText(tilibra, w - tw - 14, rulerY + rulerHeight - 6);
-
-      ctx.font = `${Math.max(10, w * 0.016)}px monospace`;
-      ctx.fillStyle = "rgba(255,255,255,0.6)";
-      ctx.fillText("mm", 8, rulerY + rulerHeight - 6);
-      ctx.fillStyle = "#fff";
-      ctx.fillText("cm", 8, rulerY + 20);
-
-      ctx.beginPath();
-      ctx.moveTo(0, rulerY + rulerHeight-2);
-      ctx.lineTo(4, rulerY + rulerHeight-10);
-      ctx.moveTo(w-1, rulerY + rulerHeight-2);
-      ctx.lineTo(w-5, rulerY + rulerHeight-10);
-      ctx.stroke();
-
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
-    }
-
-    function startDrawLoop() {
-      if (animationId) cancelAnimationFrame(animationId);
-      function frame() {
-        if (videoElem.readyState >= 2) drawFrame();
-        animationId = requestAnimationFrame(frame);
-      }
-      frame();
-    }
-
-    // --- Captura de foto ---
-    async function capturePhoto() {
-      drawFrame();
-      canvas.toBlob(async (blob) => {
-        if (!blob) { showToast("Erro ao gerar imagem"); return; }
-        const file = new File([blob], `camed_${Date.now()}.png`, { type: 'image/png' });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({ title: 'CamMed', files: [file] });
-            showToast("✅ Foto salva no rolo da câmera");
-          } catch(e) {
-            if (e.name !== 'AbortError') downloadFallback(blob);
-          }
-        } else {
-          downloadFallback(blob);
-        }
-      }, 'image/png');
-    }
-
-    function downloadFallback(blob) {
-      const a = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      a.href = url;
-      a.download = `camed_${Date.now()}.png`;
-      a.click();
-      URL.revokeObjectURL(url);
-      showToast("📁 Imagem baixada (não foi possível salvar no rolo)");
-    }
-
-    // --- Vídeo ---
-    async function startRecording() {
-      if (isRecording) return;
-      try {
-        drawFrame();
-        canvasStream = canvas.captureStream(30);
-        const mimeType = getSupportedMimeType();
-        if (!mimeType) throw new Error("Nenhum codec suportado");
-        mediaRecorder = new MediaRecorder(canvasStream, { mimeType: mimeType, videoBitsPerSecond: 2500000 });
-        recordedChunks = [];
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) recordedChunks.push(event.data);
-        };
-        mediaRecorder.onstop = () => {
-          const blob = new Blob(recordedChunks, { type: mimeType });
-          let extension = 'webm';
-          if (mimeType.includes('mp4')) extension = 'mp4';
-          else if (mimeType.includes('webm')) extension = 'webm';
-          const filename = `camed_video_${Date.now()}.${extension}`;
-          const file = new File([blob], filename, { type: mimeType });
-          if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            navigator.share({ title: 'CamMed', files: [file] })
-              .then(() => showToast("🎥 Vídeo salvo no rolo da câmera"))
-              .catch(() => downloadVideoFallback(blob, filename));
-          } else {
-            downloadVideoFallback(blob, filename);
-          }
-          cleanupRecording();
-        };
-        mediaRecorder.start(1000);
-        isRecording = true;
-        updateButtonUI();
-        showToast("🔴 Gravando vídeo...");
-      } catch (err) {
-        console.error(err);
-        showToast("Erro: " + err.message);
-        cleanupRecording();
-      }
-    }
-
-    function downloadVideoFallback(blob, filename) {
-      const a = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
-      showToast("🎥 Vídeo baixado");
-    }
-
-    function stopRecording() {
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
-      } else {
-        cleanupRecording();
-      }
-    }
-
-    function cleanupRecording() {
-      if (canvasStream) {
-        canvasStream.getTracks().forEach(t => t.stop());
-        canvasStream = null;
-      }
-      mediaRecorder = null;
-      isRecording = false;
-      updateButtonUI();
-    }
-
-    function onMainCapture() {
-      if (currentMode === 'photo') capturePhoto();
-      else {
-        if (isRecording) stopRecording();
-        else startRecording();
-      }
-    }
-
-    function setMode(mode) {
-      currentMode = mode;
-      const photoBtn = document.getElementById('photoModeBtn');
-      const videoBtn = document.getElementById('videoModeBtn');
-      const captureBtn = document.getElementById('captureBtn');
       const infoMsg = document.getElementById('infoMsg');
-
-      if (mode === 'photo') {
-        photoBtn.classList.add('active');
-        videoBtn.classList.remove('active');
-        captureBtn.classList.remove('video-mode');
-        infoMsg.innerHTML = "📷 Modo Foto • Toque para capturar";
-      } else {
-        videoBtn.classList.add('active');
-        photoBtn.classList.remove('active');
-        captureBtn.classList.add('video-mode');
-        infoMsg.innerHTML = "🎥 Modo Vídeo • Toque para iniciar/parar gravação";
-      }
-      if (isRecording && mode === 'photo') stopRecording();
-      updateButtonUI();
-    }
-
-    function updateButtonUI() {
-      const captureBtn = document.getElementById('captureBtn');
-      if (currentMode === 'video' && isRecording) {
-        captureBtn.classList.add('recording');
-      } else {
-        captureBtn.classList.remove('recording');
-      }
-    }
-
-    // --- Instalação PWA ---
-    let deferredPrompt = null;
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      const installBtn = document.getElementById('installBtn');
-      installBtn.style.display = 'block';
-      installBtn.onclick = async () => {
-        if (deferredPrompt) {
-          deferredPrompt.prompt();
-          const { outcome } = await deferredPrompt.userChoice;
-          if (outcome === 'accepted') installBtn.style.display = 'none';
-          deferredPrompt = null;
-        }
-      };
-    });
-
-    // --- Service Worker ---
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js')
-        .then(() => console.log('SW registrado'))
-        .catch(err => console.warn('SW falhou:', err));
-    }
-
-    // --- Eventos ---
-    document.getElementById('captureBtn').addEventListener('click', onMainCapture);
-    document.getElementById('photoModeBtn').addEventListener('click', () => setMode('photo'));
-    document.getElementById('videoModeBtn').addEventListener('click', () => setMode('video'));
-
-    function showToast(msg) {
-      const toast = document.getElementById('toast');
-      toast.textContent = msg;
-      toast.style.opacity = '1';
-      setTimeout(() => toast.style.opacity = '0', 2500);
-    }
-
-    // --- Iniciar ---
-    initCamera();
-    setMode('photo');
-  })();
-</script>
-</body>
-</html><!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>CamMed - Câmera Profissional</title>
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#000000">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <style>
-    * { margin:0; padding:0; box-sizing:border-box; user-select:none; }
-    body {
-      background:#000; overflow:hidden; font-family:-apple-system, 'Segoe UI', sans-serif;
-      position:fixed; top:0; left:0; width:100%; height:100%;
-    }
-    .app-container {
-      position:fixed; top:0; left:0; width:100%; height:100%; background:#000;
-      display:flex; flex-direction:column;
-    }
-    .canvas-wrapper {
-      flex:1; position:relative; background:#000; overflow:hidden;
-      display:flex; justify-content:center; align-items:center;
-    }
-    canvas {
-      position:absolute; top:0; left:0; width:100%; height:100%;
-      object-fit:cover; cursor:crosshair;
-    }
-    .mode-selector {
-      position:absolute; top:40px; left:0; right:0;
-      display:flex; justify-content:center; gap:20px;
-      background:rgba(0,0,0,0.5); backdrop-filter:blur(20px);
-      padding:6px 16px; border-radius:40px; width:fit-content;
-      margin:0 auto; z-index:20;
-    }
-    .mode-btn {
-      background:transparent; border:none; color:rgba(255,255,255,0.6);
-      font-size:15px; font-weight:600; padding:4px 16px; border-radius:30px;
-      transition:0.2s; cursor:pointer;
-    }
-    .mode-btn.active { background:rgba(255,255,255,0.3); color:white; }
-    .control-bar {
-      background:rgba(0,0,0,0.5); backdrop-filter:blur(20px);
-      display:flex; justify-content:center; align-items:center;
-      padding:16px 0 30px; border-top:0.5px solid rgba(255,255,255,0.2);
-    }
-    .capture-btn {
-      width:76px; height:76px; border-radius:50%; background:white;
-      border:none; outline:none; cursor:pointer;
-      box-shadow:0 0 0 4px rgba(255,255,255,0.3), 0 0 0 8px rgba(0,255,180,0.2);
-      transition:transform 0.1s ease; display:flex; align-items:center; justify-content:center;
-      margin-top:-20px;
-    }
-    .capture-btn:active { transform:scale(0.94); }
-    .capture-btn .inner-dot {
-      width:64px; height:64px; border-radius:50%; background:#ff3366; transition:0.1s;
-    }
-    /* Modo vídeo: botão fica vermelho */
-    .capture-btn.video-mode .inner-dot { background:#ff3b30; }
-    /* Durante gravação: pisca */
-    .capture-btn.recording .inner-dot { animation:pulse 1s infinite; }
-    @keyframes pulse {
-      0% { transform:scale(1); opacity:1; }
-      50% { transform:scale(1.1); opacity:0.8; }
-      100% { transform:scale(1); opacity:1; }
-    }
-    .install-btn {
-      position:absolute; right:20px; bottom:20px; background:#34c759;
-      border:none; border-radius:30px; padding:8px 16px; color:white;
-      font-weight:600; font-size:14px; cursor:pointer; z-index:20; display:none;
-    }
-    .info {
-      position:absolute; bottom:100px; left:0; right:0; text-align:center;
-      color:rgba(255,255,255,0.6); font-size:12px; background:rgba(0,0,0,0.4);
-      padding:4px 8px; width:fit-content; margin:0 auto; border-radius:20px;
-      backdrop-filter:blur(10px); pointer-events:none;
-    }
-    .toast {
-      position:fixed; bottom:120px; left:50%; transform:translateX(-50%);
-      background:rgba(0,0,0,0.8); color:#0f0; padding:8px 16px; border-radius:30px;
-      font-size:14px; z-index:1000; pointer-events:none; opacity:0;
-      transition:opacity 0.3s; white-space:nowrap;
-    }
-  </style>
-</head>
-<body>
-<div class="app-container">
-  <div class="canvas-wrapper">
-    <canvas id="mainCanvas"></canvas>
-  </div>
-  <div class="mode-selector">
-    <button id="photoModeBtn" class="mode-btn active">📷 Foto</button>
-    <button id="videoModeBtn" class="mode-btn">🎥 Vídeo</button>
-  </div>
-  <div class="control-bar">
-    <button class="capture-btn" id="captureBtn">
-      <div class="inner-dot"></div>
-    </button>
-  </div>
-  <div class="info" id="infoMsg">📷 Modo Foto • Toque para capturar</div>
-  <button id="installBtn" class="install-btn">📲 Instalar</button>
-</div>
-<div id="toast" class="toast">✅ Pronto!</div>
-
-<script>
-  (function() {
-    // --- Elementos ---
-    const videoElem = document.createElement('video');
-    videoElem.setAttribute('autoplay', '');
-    videoElem.setAttribute('playsinline', '');
-    videoElem.style.display = 'none';
-    document.body.appendChild(videoElem);
-
-    const canvas = document.getElementById('mainCanvas');
-    const ctx = canvas.getContext('2d');
-    let animationId = null;
-
-    // --- Configurações da régua (MELHORADAS) ---
-    const RULER_HEIGHT_RATIO = 0.10;       // 10% da altura do canvas
-    const MIN_RULER_HEIGHT = 80;            // altura mínima em pixels
-    const TICK_MM_RATIO = 0.20;             // altura do traço de 1mm em relação à régua
-    const TICK_5MM_RATIO = 0.35;
-    const TICK_CM_RATIO = 0.55;
-    const FONT_SIZE_RATIO = 0.030;          // tamanho da fonte relativo à largura
-    const CM_TO_SHOW = 20;                  // mostra 20 cm na régua
-
-    // --- Grade fixa ---
-    const GRID_COLOR = `rgba(255, 255, 255, 0.65)`;
-    const LINE_WIDTH = 1.2;
-    const FOCUS_CIRCLE_RADIUS = 60;
-    const SCALE_Y_POS = 40;
-    const SCALE_VALUES = [-3, -2, -1, 0, 1, 2, 3];
-
-    let currentMode = 'photo';
-    let isRecording = false;
-    let mediaRecorder = null;
-    let recordedChunks = [];
-    let canvasStream = null;
-    let currentStream = null;
-
-    // --- Suporte a codecs ---
-    function getSupportedMimeType() {
-      const types = ['video/mp4', 'video/webm', 'video/x-matroska'];
-      for (let type of types) {
-        if (MediaRecorder.isTypeSupported(type)) return type;
-      }
-      return null;
-    }
-
-    // --- Inicializar câmera ---
-    async function initCamera() {
-      if (currentStream) currentStream.getTracks().forEach(track => track.stop());
       try {
+        // Tenta câmera traseira com resolução ideal
         let constraints = {
           video: { facingMode: { exact: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }
         };
@@ -717,670 +192,75 @@
         currentStream = stream;
         videoElem.srcObject = stream;
         await videoElem.play();
-        resizeCanvas();
+        cameraReady = true;
+        resizeCanvasAndDraw();
         startDrawLoop();
+        infoMsg.innerHTML = "📷 Câmera ativa";
         return true;
       } catch (err) {
+        console.warn("Falha ao acessar câmera traseira, tentando qualquer uma...", err);
         try {
+          // Fallback: qualquer câmera
           let stream = await navigator.mediaDevices.getUserMedia({ video: true });
           currentStream = stream;
           videoElem.srcObject = stream;
           await videoElem.play();
-          resizeCanvas();
+          cameraReady = true;
+          resizeCanvasAndDraw();
           startDrawLoop();
+          infoMsg.innerHTML = "📷 Câmera ativa (fallback)";
           return true;
         } catch(e) {
-          document.getElementById('infoMsg').innerHTML = "❌ Sem acesso à câmera.";
-          return false;
-        }
-      }
-    }
-
-    // --- Redimensiona o canvas ---
-    function resizeCanvas() {
-      if (!videoElem.videoWidth || !videoElem.videoHeight) return;
-      canvas.width = videoElem.videoWidth;
-      canvas.height = videoElem.videoHeight;
-      canvas.style.width = '100%';
-      canvas.style.height = '100%';
-      canvas.style.objectFit = 'cover';
-      canvas.style.position = 'absolute';
-      canvas.style.top = '0';
-      canvas.style.left = '0';
-      drawFrame();
-    }
-
-    window.addEventListener('resize', () => {
-      if (videoElem.videoWidth) resizeCanvas();
-    });
-    window.addEventListener('orientationchange', () => {
-      setTimeout(() => {
-        if (videoElem.videoWidth) resizeCanvas();
-      }, 50);
-    });
-
-    // --- Desenho do frame ---
-    function drawFrame() {
-      if (!videoElem.videoWidth || !canvas.width) return;
-      ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
-      drawProfessionalGrid();
-      drawRuler();  // chamada da régua melhorada
-    }
-
-    // --- Grade profissional (inalterada) ---
-    function drawProfessionalGrid() {
-      const w = canvas.width, h = canvas.height;
-      ctx.save();
-      ctx.strokeStyle = GRID_COLOR;
-      ctx.lineWidth = LINE_WIDTH;
-      const x1 = w/3, x2 = 2*w/3, y1 = h/3, y2 = 2*h/3;
-      ctx.beginPath(); ctx.moveTo(x1,0); ctx.lineTo(x1,h); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x2,0); ctx.lineTo(x2,h); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0,y1); ctx.lineTo(w,y1); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0,y2); ctx.lineTo(w,y2); ctx.stroke();
-      const cx = w/2, cy = h/2;
-      ctx.beginPath(); ctx.arc(cx, cy, FOCUS_CIRCLE_RADIUS, 0, 2*Math.PI); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(cx-8,cy); ctx.lineTo(cx+8,cy); ctx.moveTo(cx,cy-8); ctx.lineTo(cx,cy+8); ctx.stroke();
-      ctx.beginPath(); ctx.arc(cx, cy, FOCUS_CIRCLE_RADIUS*0.4, 0, 2*Math.PI); ctx.stroke();
-      const scaleWidth = 180, startX = w/2 - scaleWidth/2, scaleY = SCALE_Y_POS;
-      const tickSpacing = scaleWidth / (SCALE_VALUES.length-1);
-      ctx.beginPath(); ctx.moveTo(startX, scaleY); ctx.lineTo(startX+scaleWidth, scaleY); ctx.stroke();
-      ctx.font = "12px 'Courier New'";
-      ctx.fillStyle = GRID_COLOR;
-      ctx.textAlign = "center";
-      for (let i=0; i<SCALE_VALUES.length; i++) {
-        const xTick = startX + i*tickSpacing;
-        ctx.beginPath(); ctx.moveTo(xTick, scaleY-5); ctx.lineTo(xTick, scaleY+5); ctx.stroke();
-        let label = SCALE_VALUES[i];
-        if (label > 0) label = "+"+label;
-        ctx.fillText(label, xTick, scaleY-8);
-      }
-      ctx.beginPath(); ctx.moveTo(w/2, scaleY-10); ctx.lineTo(w/2-4, scaleY-2); ctx.lineTo(w/2+4, scaleY-2); ctx.fillStyle = `rgba(255,200,100,0.9)`; ctx.fill();
-      [[x1,y1],[x1,y2],[x2,y1],[x2,y2]].forEach(([cx,cy]) => {
-        ctx.beginPath(); ctx.rect(cx-12, cy-8, 24, 16); ctx.stroke();
-        ctx.beginPath(); ctx.rect(cx-8, cy-12, 16, 24); ctx.stroke();
-      });
-      ctx.restore();
-    }
-
-    // --- RÉGUA MELHORADA (transparente, visível, adaptativa) ---
-    function drawRuler() {
-      const w = canvas.width;
-      const h = canvas.height;
-      // Altura da régua: proporcional à altura, com mínimo
-      const rulerHeight = Math.max(MIN_RULER_HEIGHT, h * RULER_HEIGHT_RATIO);
-      const rulerY = h - rulerHeight;
-
-      // Fundo levemente translúcido (quase transparente) para não atrapalhar
-      ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
-      ctx.fillRect(0, rulerY, w, rulerHeight);
-      // Borda superior fina e clara
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(0, rulerY);
-      ctx.lineTo(w, rulerY);
-      ctx.stroke();
-
-      // Escala: mostra CM_TO_SHOW centímetros ao longo da largura
-      const pxPerCm = w / CM_TO_SHOW;
-      const pxPerMm = pxPerCm / 10;
-
-      // Sombra nos textos para melhor legibilidade
-      ctx.shadowColor = 'rgba(0,0,0,0.7)';
-      ctx.shadowBlur = 4;
-      ctx.shadowOffsetX = 1;
-      ctx.shadowOffsetY = 1;
-
-      ctx.fillStyle = "#fff";
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 2;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-
-      for (let mm = 0; mm < CM_TO_SHOW * 10; mm++) {
-        const x = mm * pxPerMm;
-        if (x > w) break;
-        const isCm = (mm % 10 === 0);
-        const is5mm = (mm % 5 === 0 && !isCm);
-        let tickHeight = rulerHeight * TICK_MM_RATIO;
-        if (is5mm) tickHeight = rulerHeight * TICK_5MM_RATIO;
-        if (isCm) tickHeight = rulerHeight * TICK_CM_RATIO;
-
-        ctx.beginPath();
-        ctx.moveTo(x, rulerY + rulerHeight - 2);
-        ctx.lineTo(x, rulerY + rulerHeight - tickHeight);
-        ctx.stroke();
-
-        if (isCm) {
-          const cmValue = mm / 10;
-          let label = (cmValue === 0) ? "0" : (cmValue === 1 ? "1cm" : cmValue.toString());
-          ctx.font = `bold ${Math.max(12, w * FONT_SIZE_RATIO)}px 'Segoe UI', sans-serif`;
+          console.error("Erro fatal ao acessar câmera:", e);
+          infoMsg.innerHTML = "❌ Erro: " + e.message;
+          // Exibe um fundo colorido para depuração
+          ctx.fillStyle = "#333";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
           ctx.fillStyle = "#fff";
-          const tw = ctx.measureText(label).width;
-          let tx = x - tw/2;
-          if (tx < 4) tx = 4;
-          if (tx + tw > w - 4) tx = w - tw - 4;
-          ctx.fillText(label, tx, rulerY + rulerHeight - tickHeight - 4);
-        }
-      }
-
-      // Texto "tilibra" e "mm"/"cm" com sombra
-      ctx.shadowBlur = 0; // Remove sombra para esses textos menores
-      ctx.font = `italic ${Math.max(10, w * 0.018)}px 'Segoe UI'`;
-      ctx.fillStyle = "rgba(255,255,255,0.8)";
-      const tilibra = "tilibra";
-      const tw = ctx.measureText(tilibra).width;
-      ctx.fillText(tilibra, w - tw - 14, rulerY + rulerHeight - 6);
-
-      ctx.font = `${Math.max(10, w * 0.016)}px monospace`;
-      ctx.fillStyle = "rgba(255,255,255,0.6)";
-      ctx.fillText("mm", 8, rulerY + rulerHeight - 6);
-      ctx.fillStyle = "#fff";
-      ctx.fillText("cm", 8, rulerY + 20);
-
-      // Traços nas extremidades
-      ctx.beginPath();
-      ctx.moveTo(0, rulerY + rulerHeight-2);
-      ctx.lineTo(4, rulerY + rulerHeight-10);
-      ctx.moveTo(w-1, rulerY + rulerHeight-2);
-      ctx.lineTo(w-5, rulerY + rulerHeight-10);
-      ctx.stroke();
-
-      // Resetar sombra
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
-    }
-
-    function startDrawLoop() {
-      if (animationId) cancelAnimationFrame(animationId);
-      function frame() {
-        if (videoElem.readyState >= 2) drawFrame();
-        animationId = requestAnimationFrame(frame);
-      }
-      frame();
-    }
-
-    // --- Captura de foto ---
-    async function capturePhoto() {
-      drawFrame();
-      canvas.toBlob(async (blob) => {
-        if (!blob) { showToast("Erro ao gerar imagem"); return; }
-        const file = new File([blob], `camed_${Date.now()}.png`, { type: 'image/png' });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({ title: 'CamMed', files: [file] });
-            showToast("✅ Foto salva no rolo da câmera");
-          } catch(e) {
-            if (e.name !== 'AbortError') downloadFallback(blob);
-          }
-        } else {
-          downloadFallback(blob);
-        }
-      }, 'image/png');
-    }
-
-    function downloadFallback(blob) {
-      const a = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      a.href = url;
-      a.download = `camed_${Date.now()}.png`;
-      a.click();
-      URL.revokeObjectURL(url);
-      showToast("📁 Imagem baixada (não foi possível salvar no rolo)");
-    }
-
-    // --- Vídeo ---
-    async function startRecording() {
-      if (isRecording) return;
-      try {
-        drawFrame();
-        canvasStream = canvas.captureStream(30);
-        const mimeType = getSupportedMimeType();
-        if (!mimeType) throw new Error("Nenhum codec suportado");
-        mediaRecorder = new MediaRecorder(canvasStream, { mimeType: mimeType, videoBitsPerSecond: 2500000 });
-        recordedChunks = [];
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) recordedChunks.push(event.data);
-        };
-        mediaRecorder.onstop = () => {
-          const blob = new Blob(recordedChunks, { type: mimeType });
-          let extension = 'webm';
-          if (mimeType.includes('mp4')) extension = 'mp4';
-          else if (mimeType.includes('webm')) extension = 'webm';
-          const filename = `camed_video_${Date.now()}.${extension}`;
-          const file = new File([blob], filename, { type: mimeType });
-          if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            navigator.share({ title: 'CamMed', files: [file] })
-              .then(() => showToast("🎥 Vídeo salvo no rolo da câmera"))
-              .catch(() => downloadVideoFallback(blob, filename));
-          } else {
-            downloadVideoFallback(blob, filename);
-          }
-          cleanupRecording();
-        };
-        mediaRecorder.start(1000);
-        isRecording = true;
-        updateButtonUI();
-        showToast("🔴 Gravando vídeo...");
-      } catch (err) {
-        console.error(err);
-        showToast("Erro: " + err.message);
-        cleanupRecording();
-      }
-    }
-
-    function downloadVideoFallback(blob, filename) {
-      const a = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
-      showToast("🎥 Vídeo baixado");
-    }
-
-    function stopRecording() {
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
-      } else {
-        cleanupRecording();
-      }
-    }
-
-    function cleanupRecording() {
-      if (canvasStream) {
-        canvasStream.getTracks().forEach(t => t.stop());
-        canvasStream = null;
-      }
-      mediaRecorder = null;
-      isRecording = false;
-      updateButtonUI();
-    }
-
-    // --- Ação do botão central ---
-    function onMainCapture() {
-      if (currentMode === 'photo') capturePhoto();
-      else {
-        if (isRecording) stopRecording();
-        else startRecording();
-      }
-    }
-
-    // --- Alternar modo (foto/vídeo) com cores do botão ---
-    function setMode(mode) {
-      currentMode = mode;
-      const photoBtn = document.getElementById('photoModeBtn');
-      const videoBtn = document.getElementById('videoModeBtn');
-      const captureBtn = document.getElementById('captureBtn');
-      const infoMsg = document.getElementById('infoMsg');
-
-      if (mode === 'photo') {
-        photoBtn.classList.add('active');
-        videoBtn.classList.remove('active');
-        captureBtn.classList.remove('video-mode'); // volta a ser branco
-        infoMsg.innerHTML = "📷 Modo Foto • Toque para capturar";
-      } else {
-        videoBtn.classList.add('active');
-        photoBtn.classList.remove('active');
-        captureBtn.classList.add('video-mode'); // fica vermelho
-        infoMsg.innerHTML = "🎥 Modo Vídeo • Toque para iniciar/parar gravação";
-      }
-      if (isRecording && mode === 'photo') stopRecording();
-      updateButtonUI();
-    }
-
-    function updateButtonUI() {
-      const captureBtn = document.getElementById('captureBtn');
-      if (currentMode === 'video' && isRecording) {
-        captureBtn.classList.add('recording');
-      } else {
-        captureBtn.classList.remove('recording');
-      }
-    }
-
-    // --- Instalação PWA ---
-    let deferredPrompt = null;
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      const installBtn = document.getElementById('installBtn');
-      installBtn.style.display = 'block';
-      installBtn.onclick = async () => {
-        if (deferredPrompt) {
-          deferredPrompt.prompt();
-          const { outcome } = await deferredPrompt.userChoice;
-          if (outcome === 'accepted') installBtn.style.display = 'none';
-          deferredPrompt = null;
-        }
-      };
-    });
-
-    // --- Service Worker ---
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js')
-        .then(() => console.log('SW registrado'))
-        .catch(err => console.warn('SW falhou:', err));
-    }
-
-    // --- Eventos ---
-    document.getElementById('captureBtn').addEventListener('click', onMainCapture);
-    document.getElementById('photoModeBtn').addEventListener('click', () => setMode('photo'));
-    document.getElementById('videoModeBtn').addEventListener('click', () => setMode('video'));
-
-    function showToast(msg) {
-      const toast = document.getElementById('toast');
-      toast.textContent = msg;
-      toast.style.opacity = '1';
-      setTimeout(() => toast.style.opacity = '0', 2500);
-    }
-
-    // --- Iniciar ---
-    initCamera();
-    setMode('photo');
-  })();
-</script>
-</body>
-</html><!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>CamMed - Câmera Profissional</title>
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#000000">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      user-select: none;
-    }
-    body {
-      background: #000;
-      overflow: hidden;
-      font-family: -apple-system, 'Segoe UI', 'Roboto', sans-serif;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-    }
-    .app-container {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: #000;
-      display: flex;
-      flex-direction: column;
-    }
-    .canvas-wrapper {
-      flex: 1;
-      position: relative;
-      background: #000;
-      overflow: hidden;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-    canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      cursor: crosshair;
-    }
-    /* Seletor de modo no topo */
-    .mode-selector {
-      position: absolute;
-      top: 40px;
-      left: 0;
-      right: 0;
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-      background: rgba(0,0,0,0.5);
-      backdrop-filter: blur(20px);
-      padding: 6px 16px;
-      border-radius: 40px;
-      width: fit-content;
-      margin: 0 auto;
-      z-index: 20;
-    }
-    .mode-btn {
-      background: transparent;
-      border: none;
-      color: rgba(255,255,255,0.6);
-      font-size: 15px;
-      font-weight: 600;
-      padding: 4px 16px;
-      border-radius: 30px;
-      transition: 0.2s;
-      cursor: pointer;
-    }
-    .mode-btn.active {
-      background: rgba(255,255,255,0.3);
-      color: white;
-    }
-    .control-bar {
-      background: rgba(0, 0, 0, 0.5);
-      backdrop-filter: blur(20px);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 16px 0 30px;
-      border-top: 0.5px solid rgba(255,255,255,0.2);
-    }
-    .capture-btn {
-      width: 76px;
-      height: 76px;
-      border-radius: 50%;
-      background: white;
-      border: none;
-      outline: none;
-      cursor: pointer;
-      box-shadow: 0 0 0 4px rgba(255,255,255,0.3), 0 0 0 8px rgba(0,255,180,0.2);
-      transition: transform 0.1s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-top: -20px;
-    }
-    .capture-btn:active { transform: scale(0.94); }
-    .capture-btn .inner-dot {
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      background: #ff3366;
-      transition: 0.1s;
-    }
-    .capture-btn.video-mode .inner-dot {
-      background: #ff3b30;
-    }
-    .capture-btn.recording .inner-dot {
-      animation: pulse 1s infinite;
-    }
-    @keyframes pulse {
-      0% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.1); opacity: 0.8; }
-      100% { transform: scale(1); opacity: 1; }
-    }
-    .install-btn {
-      position: absolute;
-      right: 20px;
-      bottom: 20px;
-      background: #34c759;
-      border: none;
-      border-radius: 30px;
-      padding: 8px 16px;
-      color: white;
-      font-weight: 600;
-      font-size: 14px;
-      cursor: pointer;
-      z-index: 20;
-      display: none;
-    }
-    .info {
-      position: absolute;
-      bottom: 100px;
-      left: 0;
-      right: 0;
-      text-align: center;
-      color: rgba(255,255,255,0.6);
-      font-size: 12px;
-      background: rgba(0,0,0,0.4);
-      padding: 4px 8px;
-      width: fit-content;
-      margin: 0 auto;
-      border-radius: 20px;
-      backdrop-filter: blur(10px);
-      pointer-events: none;
-    }
-    .toast {
-      position: fixed;
-      bottom: 120px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.8);
-      color: #0f0;
-      padding: 8px 16px;
-      border-radius: 30px;
-      font-size: 14px;
-      z-index: 1000;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.3s;
-      white-space: nowrap;
-    }
-  </style>
-</head>
-<body>
-<div class="app-container">
-  <div class="canvas-wrapper">
-    <canvas id="mainCanvas"></canvas>
-  </div>
-  <div class="mode-selector">
-    <button id="photoModeBtn" class="mode-btn active">📷 Foto</button>
-    <button id="videoModeBtn" class="mode-btn">🎥 Vídeo</button>
-  </div>
-  <div class="control-bar">
-    <button class="capture-btn" id="captureBtn">
-      <div class="inner-dot"></div>
-    </button>
-  </div>
-  <div class="info" id="infoMsg">📷 Modo Foto • Toque para capturar</div>
-  <button id="installBtn" class="install-btn">📲 Instalar</button>
-</div>
-<div id="toast" class="toast">✅ Pronto!</div>
-
-<script>
-  (function() {
-    // --- Elementos ---
-    const videoElem = document.createElement('video');
-    videoElem.setAttribute('autoplay', '');
-    videoElem.setAttribute('playsinline', '');
-    videoElem.style.display = 'none';
-    document.body.appendChild(videoElem);
-
-    const canvas = document.getElementById('mainCanvas');
-    const ctx = canvas.getContext('2d');
-    let animationId = null;
-
-    // --- Configurações da régua (agora proporcionais) ---
-    const RULER_HEIGHT_RATIO = 0.08;  // 8% da altura do canvas
-    const TICK_MM_RATIO = 0.15;       // altura do traço de 1mm em relação à altura da régua
-    const TICK_5MM_RATIO = 0.30;
-    const TICK_CM_RATIO = 0.50;
-    const FONT_SIZE_RATIO = 0.025;    // tamanho da fonte relativo à largura
-
-    // Grade fixa (proporcional)
-    const GRID_COLOR = `rgba(255, 255, 255, 0.65)`;
-    const LINE_WIDTH = 1.2;
-    const FOCUS_CIRCLE_RADIUS = 60;
-    const SCALE_Y_POS = 40;
-    const SCALE_VALUES = [-3, -2, -1, 0, 1, 2, 3];
-
-    let currentMode = 'photo';
-    let isRecording = false;
-    let mediaRecorder = null;
-    let recordedChunks = [];
-    let canvasStream = null;
-    let currentStream = null;
-
-    // --- Suporte a codecs ---
-    function getSupportedMimeType() {
-      const types = ['video/mp4', 'video/webm', 'video/x-matroska'];
-      for (let type of types) {
-        if (MediaRecorder.isTypeSupported(type)) return type;
-      }
-      return null;
-    }
-
-    // --- Inicializar câmera ---
-    async function initCamera() {
-      if (currentStream) currentStream.getTracks().forEach(track => track.stop());
-      try {
-        let constraints = {
-          video: { facingMode: { exact: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }
-        };
-        let stream = await navigator.mediaDevices.getUserMedia(constraints);
-        currentStream = stream;
-        videoElem.srcObject = stream;
-        await videoElem.play();
-        resizeCanvas();
-        startDrawLoop();
-        return true;
-      } catch (err) {
-        try {
-          let stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          currentStream = stream;
-          videoElem.srcObject = stream;
-          await videoElem.play();
-          resizeCanvas();
-          startDrawLoop();
-          return true;
-        } catch(e) {
-          document.getElementById('infoMsg').innerHTML = "❌ Sem acesso à câmera.";
+          ctx.font = "20px sans-serif";
+          ctx.fillText("Câmera indisponível", canvas.width/2-100, canvas.height/2);
           return false;
         }
       }
     }
 
-    // --- Redimensiona o canvas ---
-    function resizeCanvas() {
-      if (!videoElem.videoWidth || !videoElem.videoHeight) return;
-      // Usamos a resolução do vídeo para o canvas
+    // --- Redimensiona e desenha ---
+    function resizeCanvasAndDraw() {
+      if (!videoElem.videoWidth || !videoElem.videoHeight) {
+        // Se ainda não tem vídeo, aguarda
+        setTimeout(resizeCanvasAndDraw, 100);
+        return;
+      }
       canvas.width = videoElem.videoWidth;
       canvas.height = videoElem.videoHeight;
       canvas.style.width = '100%';
       canvas.style.height = '100%';
       canvas.style.objectFit = 'cover';
-      canvas.style.position = 'absolute';
-      canvas.style.top = '0';
-      canvas.style.left = '0';
       drawFrame();
     }
 
     window.addEventListener('resize', () => {
-      if (videoElem.videoWidth) resizeCanvas();
+      if (videoElem.videoWidth) resizeCanvasAndDraw();
     });
     window.addEventListener('orientationchange', () => {
       setTimeout(() => {
-        if (videoElem.videoWidth) resizeCanvas();
-      }, 50);
+        if (videoElem.videoWidth) resizeCanvasAndDraw();
+      }, 200);
     });
 
-    // --- Desenho do frame ---
+    // --- Desenho principal ---
     function drawFrame() {
-      if (!videoElem.videoWidth || !canvas.width) return;
-      ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
+      if (!canvas.width || !canvas.height) return;
+      if (videoElem.readyState >= 2 && cameraReady) {
+        ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
+      } else {
+        // Fundo preto com mensagem
+        ctx.fillStyle = "#111";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#fff";
+        ctx.font = "18px sans-serif";
+        ctx.fillText("Aguardando câmera...", canvas.width/2-80, canvas.height/2);
+      }
       drawProfessionalGrid();
       drawRuler();
     }
@@ -1421,37 +301,37 @@
       ctx.restore();
     }
 
-    // --- Régua transparente com marcações proporcionais ---
+    // --- Régua transparente e visível ---
     function drawRuler() {
       const w = canvas.width;
       const h = canvas.height;
-      const rulerHeight = Math.max(60, h * RULER_HEIGHT_RATIO); // mínimo 60px
+      const rulerHeight = Math.max(MIN_RULER_HEIGHT, h * RULER_HEIGHT_RATIO);
       const rulerY = h - rulerHeight;
 
-      // Fundo transparente (apenas um leve tom para contraste)
-      ctx.fillStyle = "rgba(255, 248, 225, 0.2)";
+      // Fundo levemente escuro para contraste
+      ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
       ctx.fillRect(0, rulerY, w, rulerHeight);
-      // Borda superior sutil
-      ctx.strokeStyle = "rgba(255,255,255,0.3)";
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(0, rulerY);
       ctx.lineTo(w, rulerY);
       ctx.stroke();
 
-      // Definição da escala: queremos mostrar cerca de 20 cm na régua (ajustável)
-      const cmToShow = 20; // 20 centímetros
-      const pxPerCm = w / cmToShow;
+      const pxPerCm = w / CM_TO_SHOW;
       const pxPerMm = pxPerCm / 10;
 
+      ctx.shadowColor = 'rgba(0,0,0,0.7)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetX = 1;
+      ctx.shadowOffsetY = 1;
       ctx.fillStyle = "#fff";
       ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 2;
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
 
-      // Desenha marcações de mm
-      for (let mm = 0; mm < cmToShow * 10; mm++) {
+      for (let mm = 0; mm < CM_TO_SHOW * 10; mm++) {
         const x = mm * pxPerMm;
         if (x > w) break;
         const isCm = (mm % 10 === 0);
@@ -1468,48 +348,50 @@
         if (isCm) {
           const cmValue = mm / 10;
           let label = (cmValue === 0) ? "0" : (cmValue === 1 ? "1cm" : cmValue.toString());
-          ctx.font = `bold ${Math.max(10, w * FONT_SIZE_RATIO)}px 'Segoe UI', sans-serif`;
+          ctx.font = `bold ${Math.max(12, w * FONT_SIZE_RATIO)}px 'Segoe UI', sans-serif`;
           ctx.fillStyle = "#fff";
           const tw = ctx.measureText(label).width;
           let tx = x - tw/2;
-          if (tx < 2) tx = 2;
-          if (tx + tw > w - 5) tx = w - tw - 2;
+          if (tx < 4) tx = 4;
+          if (tx + tw > w - 4) tx = w - tw - 4;
           ctx.fillText(label, tx, rulerY + rulerHeight - tickHeight - 4);
         }
       }
 
-      // Texto "tilibra" e "mm" / "cm"
-      ctx.font = `italic ${Math.max(8, w * 0.015)}px 'Segoe UI'`;
-      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      ctx.shadowBlur = 0;
+      ctx.font = `italic ${Math.max(10, w * 0.018)}px 'Segoe UI'`;
+      ctx.fillStyle = "rgba(255,255,255,0.8)";
       const tilibra = "tilibra";
       const tw = ctx.measureText(tilibra).width;
-      ctx.fillText(tilibra, w - tw - 12, rulerY + rulerHeight - 8);
+      ctx.fillText(tilibra, w - tw - 14, rulerY + rulerHeight - 6);
 
-      ctx.font = `${Math.max(8, w * 0.014)}px monospace`;
-      ctx.fillStyle = "rgba(255,255,255,0.5)";
-      ctx.fillText("mm", 6, rulerY + rulerHeight - 6);
+      ctx.font = `${Math.max(10, w * 0.016)}px monospace`;
+      ctx.fillStyle = "rgba(255,255,255,0.6)";
+      ctx.fillText("mm", 8, rulerY + rulerHeight - 6);
       ctx.fillStyle = "#fff";
-      ctx.fillText("cm", 6, rulerY + 16);
+      ctx.fillText("cm", 8, rulerY + 20);
 
-      // Pequenos traços nas extremidades
       ctx.beginPath();
       ctx.moveTo(0, rulerY + rulerHeight-2);
-      ctx.lineTo(3, rulerY + rulerHeight-8);
+      ctx.lineTo(4, rulerY + rulerHeight-10);
       ctx.moveTo(w-1, rulerY + rulerHeight-2);
-      ctx.lineTo(w-4, rulerY + rulerHeight-8);
+      ctx.lineTo(w-5, rulerY + rulerHeight-10);
       ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
     }
 
     function startDrawLoop() {
       if (animationId) cancelAnimationFrame(animationId);
       function frame() {
-        if (videoElem.readyState >= 2) drawFrame();
+        drawFrame();
         animationId = requestAnimationFrame(frame);
       }
       frame();
     }
 
-    // --- Captura de foto (compartilhar) ---
+    // --- Foto ---
     async function capturePhoto() {
       drawFrame();
       canvas.toBlob(async (blob) => {
@@ -1608,6 +490,10 @@
 
     // --- Ação do botão central ---
     function onMainCapture() {
+      if (!cameraReady) {
+        showToast("Aguardando câmera...");
+        return;
+      }
       if (currentMode === 'photo') capturePhoto();
       else {
         if (isRecording) stopRecording();
@@ -1622,6 +508,7 @@
       const videoBtn = document.getElementById('videoModeBtn');
       const captureBtn = document.getElementById('captureBtn');
       const infoMsg = document.getElementById('infoMsg');
+
       if (mode === 'photo') {
         photoBtn.classList.add('active');
         videoBtn.classList.remove('active');
@@ -1639,8 +526,11 @@
 
     function updateButtonUI() {
       const captureBtn = document.getElementById('captureBtn');
-      if (currentMode === 'video' && isRecording) captureBtn.classList.add('recording');
-      else captureBtn.classList.remove('recording');
+      if (currentMode === 'video' && isRecording) {
+        captureBtn.classList.add('recording');
+      } else {
+        captureBtn.classList.remove('recording');
+      }
     }
 
     // --- Instalação PWA ---
